@@ -131,28 +131,49 @@ function updateGameLogic() {
     // Update lap timer
     lapInfo.currentTime += deltaTime;
 
-    // Only update first car (single player)
+    // Update cars based on game mode
     if (cars.length > 0) {
-        let car = cars[0];
+        // Player 1 - WASD controls
+        let car1 = cars[0];
+        let forward1 = keyIsDown(87);  // W
+        let back1 = keyIsDown(83);     // S
+        let turnLeft1 = keyIsDown(65); // A
+        let turnRight1 = keyIsDown(68); // D
 
-        // Player 1 controls: WASD
-        let forward = keyIsDown(87);  // W
-        let back = keyIsDown(83);     // S
-        let turnLeft = keyIsDown(65); // A
-        let turnRight = keyIsDown(68); // D
-
-        car.update(forward, back, turnLeft, turnRight, 4);
+        car1.update(forward1, back1, turnLeft1, turnRight1, 4);
 
         // Update car state for HUD
-        if (!car.state) {
-            car.state = {
+        if (!car1.state) {
+            car1.state = {
                 speed: 0,
                 drifting: false,
                 driftScore: 0,
                 driftCombo: 1
             };
         }
-        car.state.speed = car.vel.mag();
+        car1.state.speed = car1.vel.mag();
+    }
+
+    // Player 2 - Arrow keys (only in two-player mode)
+    if (gameMode === 'two-player' && cars.length > 1) {
+        let car2 = cars[1];
+        let forward2 = keyIsDown(UP_ARROW);
+        let back2 = keyIsDown(DOWN_ARROW);
+        let turnLeft2 = keyIsDown(LEFT_ARROW);
+        let turnRight2 = keyIsDown(RIGHT_ARROW);
+
+        car2.update(forward2, back2, turnLeft2, turnRight2, 4);
+
+        // Update car state for HUD
+        if (!car2.state) {
+            car2.state = {
+                speed: 0,
+                drifting: false,
+                driftScore: 0,
+                driftCombo: 1
+            };
+        }
+        car2.state.speed = car2.vel.mag();
     }
 }
 
@@ -160,8 +181,15 @@ function updateGameLogic() {
  * Draw HUD based on game mode
  */
 function drawHUD() {
-    if (cars.length > 0) {
+    if (gameMode === 'single' && cars.length > 0) {
         hud.drawSinglePlayer(cars[0].state || {}, lapInfo);
+    } else if (gameMode === 'two-player' && cars.length >= 2) {
+        hud.drawTwoPlayer(
+            cars[0].state || {},
+            cars[1].state || {},
+            lapInfo,
+            { ...lapInfo } // Placeholder for player 2 lap info
+        );
     }
 }
 
@@ -175,11 +203,24 @@ function drawNeonGrid() {
     let worldW = 1400;
     let worldH = 1000;
 
-    // Calculate origin in screen space based on car position
+    // Calculate average position for camera follow
+    let avgX, avgY;
+    if (gameMode === 'two-player' && cars.length >= 2) {
+        avgX = (cars[0].pos.x + cars[1].pos.x) / 2;
+        avgY = (cars[0].pos.y + cars[1].pos.y) / 2;
+    } else if (cars.length > 0) {
+        avgX = cars[0].pos.x;
+        avgY = cars[0].pos.y;
+    } else {
+        avgX = 0;
+        avgY = 0;
+    }
+
+    // Calculate origin in screen space based on average position
     let cx = width / 2;
     let cy = height / 2;
-    let originScreenX = cx - cars[0].pos.x;
-    let originScreenY = cy + cars[0].pos.y; // y positive = up
+    let originScreenX = cx - avgX;
+    let originScreenY = cy + avgY; // y positive = up
 
     // Draw grid lines with neon glow
     drawingContext.shadowBlur = 5;
@@ -209,11 +250,24 @@ function drawNeonGrid() {
 function drawTrack() {
     push();
 
-    // Calculate origin in screen space based on car position
+    // Calculate average position for camera follow
+    let avgX, avgY;
+    if (gameMode === 'two-player' && cars.length >= 2) {
+        avgX = (cars[0].pos.x + cars[1].pos.x) / 2;
+        avgY = (cars[0].pos.y + cars[1].pos.y) / 2;
+    } else if (cars.length > 0) {
+        avgX = cars[0].pos.x;
+        avgY = cars[0].pos.y;
+    } else {
+        avgX = 0;
+        avgY = 0;
+    }
+
+    // Calculate origin in screen space based on average position
     let cx = width / 2;
     let cy = height / 2;
-    let originScreenX = cx - cars[0].pos.x;
-    let originScreenY = cy + cars[0].pos.y;
+    let originScreenX = cx - avgX;
+    let originScreenY = cy + avgY;
 
     translate(originScreenX, originScreenY);
     scale(1, -1); // Flip y-axis to match world coordinates (y up)
@@ -259,15 +313,32 @@ function drawTrack() {
  * Draw cars with neon effects
  */
 function drawCars() {
-    // Car draws itself at screen center (world moves around it)
-    if (cars.length > 0) {
-        let car = cars[0];
-        let carColor = NEON_COLORS.cyan;
+    // Calculate average position for camera follow
+    let avgX, avgY;
+    if (gameMode === 'two-player' && cars.length >= 2) {
+        avgX = (cars[0].pos.x + cars[1].pos.x) / 2;
+        avgY = (cars[0].pos.y + cars[1].pos.y) / 2;
+    } else if (cars.length > 0) {
+        avgX = cars[0].pos.x;
+        avgY = cars[0].pos.y;
+    } else {
+        avgX = 0;
+        avgY = 0;
+    }
+
+    // Draw each car relative to the average position
+    for (let i = 0; i < cars.length; i++) {
+        let car = cars[i];
+        let carColor = i === 0 ? NEON_COLORS.cyan : NEON_COLORS.magenta;
 
         push();
 
-        // Car is always centered on screen
-        translate(width / 2, height / 2);
+        // Calculate relative position from average
+        let relX = car.pos.x - avgX;
+        let relY = car.pos.y - avgY;
+
+        // Position car relative to center based on average
+        translate(width / 2 + relX, height / 2 - relY); // y flipped
         rotate(car.heading);
 
         // Apply glow
@@ -341,9 +412,22 @@ function drawMenuBackground() {
  * NOTE: This will be replaced with Person A & B's actual implementations
  */
 function initializePlaceholderGame() {
-    // Create single car only
+    // Create car(s) based on game mode
     cars = [];
-    cars.push(new Car());
+
+    if (gameMode === 'single') {
+        cars.push(new Car());
+    } else if (gameMode === 'two-player') {
+        // Player 1 starts on the left
+        let car1 = new Car();
+        car1.pos.x = -100;
+        cars.push(car1);
+
+        // Player 2 starts on the right
+        let car2 = new Car();
+        car2.pos.x = 100;
+        cars.push(car2);
+    }
 
     // Reset lap info
     lapInfo = {
