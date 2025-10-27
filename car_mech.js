@@ -14,16 +14,16 @@ class Car {
         this.body = Matter.Bodies.rectangle(x, y, 40, 20, {
             density: 0.04,
             friction: 0.03,
-            frictionAir: 0.1,
+            frictionAir: 0.06,
             restitution: 0.5
         });
 
         Matter.World.add(world, this.body);
 
         // Car properties
-        this.maxSpeed = 10;
-        this.acceleration = 0.05;
-        this.turnSpeed = 0.05;
+        this.maxSpeed = 20;
+        this.acceleration = 0.08;
+        this.turnSpeed = 0.06;
         this.driftFactor = 0.95;
 
         // State
@@ -75,12 +75,11 @@ class Car {
         // Forward/Backward
         if (keyIsDown(this.controls.up)) {
             force = this.acceleration;
-            this.state.throttle = 1;
         } else if (keyIsDown(this.controls.down) && this.state.speed > 0) {
+            // change to change firction instead
             force = -this.acceleration * 0.7;
-            this.state.throttle = -0.7;
         } else {
-            this.state.throttle = 0;
+            //
         }
 
         // Apply force in direction car is facing
@@ -100,7 +99,7 @@ class Car {
             });
         }
 
-        // Steering (only when moving)
+        // Steerin
         if (speed > 0.5) {
             //let turnSpeed = this.turnSpeed * (speed / this.maxSpeed); // More speed, more responsive turning
             if (keyIsDown(this.controls.left)) {
