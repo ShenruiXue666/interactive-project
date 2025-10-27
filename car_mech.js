@@ -14,7 +14,7 @@ class Car {
         this.body = Matter.Bodies.rectangle(x, y, 40, 20, {
             density: 0.04,
             friction: 0.03,
-            frictionAir: 0.002,
+            frictionAir: 0.1,
             restitution: 0.5
         });
 
@@ -102,12 +102,12 @@ class Car {
 
         // Steering (only when moving)
         if (speed > 0.5) {
-            let turnSpeed = this.turnSpeed * (speed / this.maxSpeed); // More speed, more responsive turning
+            //let turnSpeed = this.turnSpeed * (speed / this.maxSpeed); // More speed, more responsive turning
             if (keyIsDown(this.controls.left)) {
-                Matter.Body.setAngle(this.body, angle - turnSpeed);
+                Matter.Body.setAngle(this.body, angle - this.turnSpeed);
             }
             if (keyIsDown(this.controls.right)) {
-                Matter.Body.setAngle(this.body, angle + turnSpeed);
+                Matter.Body.setAngle(this.body, angle + this.turnSpeed);
             }
         }
 
