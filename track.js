@@ -51,9 +51,13 @@
       Define as data. buildTrack will create a sensor for each.
    ------------------------------------------------------------- */
    var CHECKPOINTS = [
-     { x: 2100, y: 1500, r: 35 } // CP0 (you can add more later)
-     // Example to add more:
-     // { x: 2500, y: 1200, r: 35 }, { x: 2600, y: 800, r: 35 }
+     // Scattered checkpoints for a proper racing circuit (avoiding obstacles)
+     { x: 2100, y: 1500, r: 35 },  // CP0 - Bottom-right
+     { x: 2500, y: 1200, r: 35 },  // CP1 - Top-right
+     { x: 2000, y: 600, r: 35 },   // CP2 - Top-center
+     { x: 1000, y: 300, r: 35 },   // CP3 - Top-left (moved away from obstacle)
+     { x: 400, y: 1000, r: 35 },   // CP4 - Middle-left (moved away from obstacle)
+     { x: 1100, y: 1600, r: 35 }   // CP5 - Bottom-left (moved away from obstacle)
    ];
    
    /* ------------------------------------------------------------
@@ -62,9 +66,16 @@
    ------------------------------------------------------------- */
    var CURVED_BARRIERS = [
      // centerX, centerY, width, height, angleRadians
-     { x: 1200, y: 800,  w: 160, h: 24, a:  0.20 },
-     { x: 1280, y: 860,  w: 160, h: 24, a:  0.05 },
-     { x: 1360, y: 920,  w: 160, h: 24, a: -0.10 }
+     // Scattered obstacles across the track for better gameplay
+     { x: 800, y: 300,   w: 120, h: 20, a:  0.3 },   // Top-left area
+     { x: 1200, y: 400,  w: 140, h: 22, a: -0.2 },   // Top-center area
+     { x: 2000, y: 350,  w: 100, h: 18, a:  0.4 },   // Top-right area
+     { x: 600, y: 800,   w: 160, h: 24, a: -0.1 },   // Middle-left area
+     { x: 1500, y: 900,  w: 130, h: 20, a:  0.25 },  // Middle-center area
+     { x: 2400, y: 850,  w: 110, h: 22, a: -0.3 },   // Middle-right area
+     { x: 900, y: 1400,  w: 150, h: 26, a:  0.15 },  // Bottom-left area
+     { x: 1800, y: 1500, w: 120, h: 20, a: -0.25 },  // Bottom-center area
+     { x: 2200, y: 1600, w: 140, h: 24, a:  0.35 }   // Bottom-right area
    ];
    
    /* ------------------------------------------------------------
@@ -72,10 +83,16 @@
       Boost and grip sensors. If used, they fire onPad callback.
    ------------------------------------------------------------- */
    var BOOST_PADS = [
-     // { x: 1000, y: 700, w: 140, h: 30 }
+     // Scattered boost pads for speed boosts
+     { x: 1000, y: 600, w: 140, h: 30 },   // Top area
+     { x: 1600, y: 1200, w: 120, h: 25 },  // Middle area
+     { x: 2200, y: 1000, w: 130, h: 28 }   // Right area
    ];
    var GRIP_PADS = [
-     // { x: 1800, y: 1300, w: 200, h: 40 }
+     // Scattered grip pads for better traction
+     { x: 700, y: 1200, w: 180, h: 35 },   // Left area
+     { x: 1900, y: 600, w: 160, h: 32 },   // Top-right area
+     { x: 1400, y: 1600, w: 200, h: 40 }   // Bottom area
    ];
    
    /* 1) ARENA CONSTRUCTION
@@ -198,6 +215,14 @@
        for (var p = 0; p < pairs.length; p++) {
          var a = pairs[p].bodyA;
          var b = pairs[p].bodyB;
+         
+         // Debug: Log all collisions involving cars (reduced logging)
+         // if (a.label && a.label.indexOf("CAR") === 0) {
+         //   console.log("🚗 Car collision:", a.label, "with", b.label);
+         // }
+         // if (b.label && b.label.indexOf("CAR") === 0) {
+         //   console.log("🚗 Car collision:", b.label, "with", a.label);
+         // }
    
          for (var idx = 0; idx < carBodies.length; idx++) {
            var carLabel = carBodies[idx].label;
@@ -216,14 +241,19 @@
            // If you have only one checkpoint, this still works at index 0
            var otherLabel = (a.label === carLabel) ? b.label : a.label;
            if (otherLabel && otherLabel.indexOf("CHECK_") === 0) {
+             console.log("🚗 Car", carLabel, "collided with", otherLabel);
              var hitIndex = parseInt(otherLabel.split("_")[1], 10);
+             console.log("🎯 Hit checkpoint", hitIndex, "expected", nextCheckpointIndex[idx]);
              if (hitIndex === nextCheckpointIndex[idx]) {
                // correct checkpoint in order
+               console.log("✅ CORRECT CHECKPOINT ORDER!");
                nextCheckpointIndex[idx] = (nextCheckpointIndex[idx] + 1) % Math.max(1, CHECKPOINTS.length);
                passedCheckpoint[idx] = true; // keep legacy flag so older UI logic still works
                if (callbacks && typeof callbacks.onCheckpoint === "function") {
                  callbacks.onCheckpoint(idx, hitIndex);
                }
+             } else {
+               console.log("❌ Wrong checkpoint order - expected", nextCheckpointIndex[idx], "got", hitIndex);
              }
            }
    
