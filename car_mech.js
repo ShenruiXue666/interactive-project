@@ -13,7 +13,7 @@ class Car {
         // Physics properties
         this.body = Matter.Bodies.rectangle(x, y, 40, 20, {
             density: 0.04,
-            frictionAir: 0.02,
+            frictionAir: 0.05,
             restitution: 0.5
         });
 
@@ -72,7 +72,7 @@ class Car {
         let angle = this.body.angle;
         let force = 0;
 
-        this.frictionAir = 0.02;
+        this.frictionAir = 0.05;
 
         let carAngle = wrapPi(this.body.angle);
         let velocityAngle = wrapPi(Math.atan2(velocity.y, velocity.x));
@@ -112,13 +112,7 @@ class Car {
             });
         }
 
-        // TODO: speed after collision limit
-        if (speed > this.maxCollisionSpeed && ) {
-            Matter.Body.setVelocity(this.body, {
-                x: velocity.x * (this.maxCollisionSpeed / speed),
-                y: velocity.y * (this.maxCollisionSpeed / speed)
-            });
-        }
+        // TODO: reduce speed after collision
 
         // Steering
         if (speed > 0.5) {
