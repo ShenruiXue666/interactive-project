@@ -1060,7 +1060,7 @@ function drawCheckpointStatus() {
     text("T - Test checkpoint", x, y + 155);
     text("L - Toggle alerts", x, y + 170);
     text("M - Return to menu", x, y + 185);
-    text("G - Force resume (if stuck)", x, y + 200);
+    text("R - Respawn", x, y + 200);
 
     pop();
 }

@@ -89,10 +89,14 @@ class Car {
             this.state.releaseSpeed = this.state.speed;
         } else if (speed > 0) {
             // todo
-            Matter.Body.setVelocity(this.body, {
-                x: velocity.x * (this.state.releaseSpeed / speed),
-                y: velocity.y * (this.state.releaseSpeed / speed)
-            });
+            if (angleDiff > 0.3 || this.state.drifting) {
+                this.frictionAir = 0.8;
+            } else {
+                Matter.Body.setVelocity(this.body, {
+                    x: velocity.x * (this.state.releaseSpeed / speed),
+                    y: velocity.y * (this.state.releaseSpeed / speed)
+                });
+            }
         }
 
         // Apply force in direction car is facing
