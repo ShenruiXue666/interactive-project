@@ -117,7 +117,7 @@ class Car {
         // TODO: reduce speed after collision
 
         // Steering
-        if (speed > 0.5) {
+        if (speed > 0.2) {
             //let turnSpeed = this.turnSpeed * (speed / this.maxSpeed); // More speed, more responsive turning
             if (keyIsDown(this.controls.left)) {
                 Matter.Body.setAngle(this.body, angle - this.turnSpeed);

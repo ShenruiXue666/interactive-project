@@ -65,6 +65,21 @@ const NEON_COLORS = {
 // Menu elements
 let menuElements;
 
+// Sound & Music
+let menuMusic, pauseMusic, singlePlayerMusic, twoPlayerMusic, checkpointSound;
+let currentMusic = null; // To track currently playing music
+
+function preload() {
+    // Load any assets here (e.g., images, sounds)
+    // soundFormats('wav', 'mp3'); // Removed to fix ReferenceError, as p5.sound might not be loaded.
+    // NOTE: Make sure you have an 'assets/sounds' folder with these files.
+    menuMusic = loadSound('assets/sounds/menu.wav');
+    pauseMusic = loadSound('assets/sounds/pause.wav');
+    singlePlayerMusic = loadSound('assets/sounds/singleplayer.mp3');
+    twoPlayerMusic = loadSound('assets/sounds/twoplayers.wav');
+    checkpointSound = loadSound('assets/sounds/checkpoint.wav');
+}
+
 /**
  * p5.js setup function
  */
@@ -96,6 +111,9 @@ function setup() {
  */
 function draw() {
     background(10, 5, 20); // Dark purple-ish background
+
+    // Manage background music based on game state
+    manageMusic();
 
     // SAFETY: Ensure game state is valid
     if (!gameState || gameState === 'undefined') {
@@ -777,6 +795,11 @@ function onLap(carIndex, lapTime) {
 // Called when car hits checkpoint
 function onCheckpoint(carIndex, checkpointIndex) {
     try {
+        // Play checkpoint sound
+        if (checkpointSound && checkpointSound.isLoaded()) {
+            checkpointSound.play();
+        }
+
         // Check if this checkpoint was already activated recently (only for visual effects, not alerts)
         let cooldownKey = `${carIndex}-${checkpointIndex}`;
         let wasRecentlyActivated = checkpointCooldowns[cooldownKey] && checkpointCooldowns[cooldownKey] > millis() - 500;
@@ -1075,6 +1098,43 @@ function drawCheckpointStatus() {
     //text("M - Return to menu", x, y + 230);
     pop();
 }
+
+/**
+ * Manages which background music should be playing.
+ */
+function manageMusic() {
+    let targetMusic = null;
+
+    // Determine which music should be playing
+    if (gameState === 'menu') {
+        targetMusic = menuMusic;
+    } else if (gameState === 'paused') {
+        targetMusic = pauseMusic;
+    } else if (gameState === 'playing') {
+        if (gameMode === 'single') {
+            targetMusic = singlePlayerMusic;
+        } else if (gameMode === 'two-player') {
+            targetMusic = twoPlayerMusic;
+        }
+    }
+
+    // If the target music is not the one currently playing
+    if (targetMusic !== currentMusic) {
+        // Stop any currently playing music
+        if (currentMusic && currentMusic.isLoaded() && currentMusic.isPlaying()) {
+            currentMusic.stop();
+        }
+
+        // Play the new target music if it exists and is loaded
+        if (targetMusic && targetMusic.isLoaded()) {
+            targetMusic.loop();
+        }
+
+        // Update the current music tracker
+        currentMusic = targetMusic;
+    }
+}
+
 
 /**
  * Force game resumption after checkpoint alert
