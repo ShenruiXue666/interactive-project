@@ -40,6 +40,7 @@ let lapInfo = {
 // Skid marks
 let skidMarks = [];
 let particles = [];
+let showParticles = true; // Toggle for particle effects
 
 // Checkpoint activation tracking
 let checkpointActivations = {
@@ -49,7 +50,7 @@ let checkpointActivations = {
 let checkpointEffects = []; // Visual effects for activated checkpoints
 let checkpointCooldowns = []; // Prevent multiple activations
 let alertCooldowns = []; // Prevent multiple alert popups
-let showCheckpointAlerts = true; // Toggle for checkpoint alerts (default ON)
+let showCheckpointAlerts = false; // Toggle for checkpoint alerts (default ON)
 
 // Visual settings
 const NEON_GRID_SIZE = 100;
@@ -193,21 +194,20 @@ function updateGameLogic() {
                     color: carColor
                 });
 
-
-                /* performance issue with particles
                 // Emit a burst of particles for the new skid mark
-                for (let j = 0; j < 5; j++) {
-                    particles.push({
-                        x: lerp(lastPoint.x, secondLastPoint.x, Math.random()),
-                        y: lerp(lastPoint.y, secondLastPoint.y, Math.random()),
-                        vx: (Math.random() - 0.5) * 1,
-                        vy: (Math.random() - 0.5) * 1,
-                        lifetime: 30, // 0.5 second lifetime
-                        maxLifetime: 30,
-                        color: carColor
-                    });
+                if (showParticles) {
+                    for (let j = 0; j < 3; j++) {
+                        particles.push({
+                            x: lerp(lastPoint.x, secondLastPoint.x, Math.random()),
+                            y: lerp(lastPoint.y, secondLastPoint.y, Math.random()),
+                            vx: (Math.random() - 0.5) * 1,
+                            vy: (Math.random() - 0.5) * 1,
+                            lifetime: 30, // 0.5 second lifetime
+                            maxLifetime: 30,
+                            color: carColor
+                        });
+                    }
                 }
-                */
             }
         }
     }
@@ -445,9 +445,9 @@ function updateAndDrawParticles() {
         let c = color(p.color);
         drawingContext.shadowBlur = 10;
         drawingContext.shadowColor = p.color;
-        fill(red(c) - 50, green(c) - 50, blue(c) - 50, alpha * 255);
-        noStroke();
-        circle(p.x, p.y, 3);
+        stroke(red(c) - 50, green(c) - 50, blue(c) - 50, alpha * 255);
+        strokeWeight(6);
+        point(p.x, p.y);
 
         // Remove if lifetime is over
         if (p.lifetime <= 0) {
@@ -725,6 +725,12 @@ function keyPressed() {
     if (key === 'l' || key === 'L') {
         showCheckpointAlerts = !showCheckpointAlerts;
         console.log("🔔 Checkpoint alerts:", showCheckpointAlerts ? "ENABLED" : "DISABLED");
+    }
+
+    // Toggle particles with E key
+    if (key === 'e' || key === 'E') {
+        showParticles = !showParticles;
+        console.log("✨ Particles:", showParticles ? "ENABLED" : "DISABLED");
     }
 
     // Return to menu with M key
@@ -1055,17 +1061,18 @@ function drawCheckpointStatus() {
     }
 
     // Show alert status
-    fill(showCheckpointAlerts ? '#00ff00' : '#ff6666');
-    text(`Alerts: ${showCheckpointAlerts ? 'ON' : 'OFF'} (Press L)`, x, y + 120);
+    //fill(showCheckpointAlerts ? '#00ff00' : '#ff6666');
+    //text(`Alerts: ${showCheckpointAlerts ? 'ON' : 'OFF'} (Press L)`, x, y + 120);
 
     // Show controls
     fill(255);
     text("Controls:", x, y + 140);
-    text("T - Test checkpoint", x, y + 155);
-    text("L - Toggle alerts", x, y + 170);
-    text("M - Return to menu", x, y + 185);
-    text("R - Respawn", x, y + 200);
-
+    text("E - Toggle particles", x, y + 155);
+    text("ESC - Pause", x, y + 170);
+    text("R - Respawn", x, y + 185);
+    //text("T - Test checkpoint", x, y + 200);
+    //text("L - Toggle alerts", x, y + 215);
+    //text("M - Return to menu", x, y + 230);
     pop();
 }
 
