@@ -19,6 +19,10 @@ let gameMode = 'single'; // 'single' or 'two-player'
 let camera;
 let hud;
 
+// Two-player mode timer (30 seconds)
+let twoPlayerTimer = 1800; // 30 seconds * 60 FPS = 1800 frames
+let twoPlayerMaxTime = 1800;
+
 // Matter.js
 let Engine = Matter.Engine;
 let World = Matter.World;
@@ -71,7 +75,7 @@ let currentMusic = null; // To track currently playing music
 
 function preload() {
     // Load any assets here (e.g., images, sounds)
-    // soundFormats('wav', 'mp3'); // Removed to fix ReferenceError, as p5.sound might not be loaded.
+    soundFormats('wav', 'mp3'); // Removed to fix ReferenceError, as p5.sound might not be loaded.
     // NOTE: Make sure you have an 'assets/sounds' folder with these files.
     menuMusic = loadSound('assets/sounds/menu.wav');
     pauseMusic = loadSound('assets/sounds/pause.wav');
@@ -102,7 +106,7 @@ function setup() {
     // Initialize track system
     initializeTrack();
 
-    console.log('Neon Drift Racing - Person C Demo');
+    console.log('Neon Drift Racing');
     console.log('Camera and HUD systems initialized');
 }
 
@@ -190,6 +194,18 @@ function updateGameLogic() {
     // Update lap timer
     lapInfo.currentTime += deltaTime;
 
+    // Two-player mode countdown timer
+    if (gameMode === 'two-player') {
+        twoPlayerTimer -= 1;
+
+        // Check if time is up
+        if (twoPlayerTimer <= 0) {
+            console.log('⏰ Two-player timer expired! Returning to menu...');
+            returnToMenu();
+            return;
+        }
+    }
+
     // Update cars
     for (let car of cars) {
         car.update();
@@ -251,8 +267,7 @@ function drawHUD() {
         hud.drawTwoPlayer(
             cars[0].state || {},
             cars[1].state || {},
-            player1LapInfo,
-            player2LapInfo
+            twoPlayerTimer // Pass the timer value
         );
     }
 }
@@ -381,9 +396,6 @@ function drawCars() {
     for (let i = 0; i < cars.length; i++) {
         let car = cars[i];
         let carColor = i === 0 ? NEON_COLORS.cyan : NEON_COLORS.magenta;
-
-        // Draw skid marks first (if drifting)
-        // This is now handled by drawAllSkidMarks() before drawCars()
 
         // Apply glow
         drawingContext.shadowBlur = 20;
@@ -558,9 +570,7 @@ function initializeGame() {
     });
     raceRules = attachRaceRules(Matter, engine, carBodies, {
         onCheckpoint: onCheckpoint,
-        // onLap: onLap,
         onWallHit: onWallHit,
-        // onPad: onPad
     });
 
     // Reset lap info
@@ -575,6 +585,9 @@ function initializeGame() {
     checkpointActivations.player1.fill(false);
     checkpointActivations.player2.fill(false);
     checkpointEffects = [];
+
+    // Reset two-player timer
+    twoPlayerTimer = twoPlayerMaxTime;
 
     console.log('Game initialized with', cars.length, 'car(s)');
 }
@@ -668,6 +681,9 @@ function restartGame() {
     // Force game state to playing
     gameState = 'playing';
 
+    // Reset two-player timer
+    twoPlayerTimer = twoPlayerMaxTime;
+
     // Clear any blocking states
     checkpointCooldowns = [];
     alertCooldowns = [];
@@ -716,11 +732,22 @@ function keyPressed() {
         }
     }
 
-    // Restart
+    // Restart/Respawn
     if (key === 'r' || key === 'R') {
         if (gameState === 'playing' || gameState === 'paused') {
-            restartGame();
+            if (gameMode === 'two-player') {
+                // In two-player mode, R key only respawns player 1
+                respawnPlayer(0);
+            } else {
+                // In single player mode, R key restarts the entire game
+                restartGame();
+            }
         }
+    }
+
+    // Right Ctrl key for player 2 respawn in two-player mode
+    if (keyCode === 17 && gameState === 'playing' && gameMode === 'two-player') { // Right Ctrl key code
+        respawnPlayer(1);
     }
 
     // Return to menu
@@ -762,6 +789,37 @@ function keyPressed() {
         console.log("🔄 FORCING GAME STATE TO PLAYING");
         gameState = 'playing';
         console.log("✅ Game state forced to playing");
+    }
+}
+
+/**
+ * Respawn a specific player
+ * @param {number} playerIndex - Index of the player to respawn (0 or 1)
+ */
+function respawnPlayer(playerIndex) {
+    if (!cars[playerIndex] || !track) return;
+
+    console.log(`🔄 Respawning player ${playerIndex + 1}`);
+
+    // Get start positions from track system
+    let startPositions = getStartPositions();
+
+    if (startPositions[playerIndex]) {
+        let car = cars[playerIndex];
+
+        // Use Matter.js Body.setPosition and Body.setVelocity for proper physics updates
+        Matter.Body.setPosition(car.body, {
+            x: startPositions[playerIndex].x,
+            y: startPositions[playerIndex].y
+        });
+
+        Matter.Body.setVelocity(car.body, { x: 0, y: 0 });
+        Matter.Body.setAngularVelocity(car.body, 0);
+        Matter.Body.setAngle(car.body, 0);
+
+        console.log(`✅ Player ${playerIndex + 1} respawned at start position (${startPositions[playerIndex].x}, ${startPositions[playerIndex].y})`);
+    } else {
+        console.warn(`⚠️ No start position found for player ${playerIndex + 1}`);
     }
 }
 
@@ -860,12 +918,6 @@ function onCheckpoint(carIndex, checkpointIndex) {
 // Called when car hits wall
 function onWallHit(carIndex) {
     camera.shake(10, 8);
-
-    // Reset drift combo
-    if (cars[carIndex] && cars[carIndex].state) {
-        cars[carIndex].state.driftCombo = 1;
-        cars[carIndex].state.driftScore = Math.max(0, cars[carIndex].state.driftScore - 50);
-    }
 }
 
 /**
@@ -1090,9 +1142,14 @@ function drawCheckpointStatus() {
     // Show controls
     fill(255);
     text("Controls:", x, y + 140);
-    text("E - Toggle particles", x, y + 155);
+    text("E - Toggle Particle Effects", x, y + 155);
     text("ESC - Pause", x, y + 170);
-    text("R - Respawn", x, y + 185);
+    if (gameMode === 'single') {
+        text("R - Respawn", x, y + 185);
+    } else {
+        text("R - Respawn P1", x, y + 185);
+        text("Right Ctrl - Respawn P2", x, y + 200);
+    }
     //text("T - Test checkpoint", x, y + 200);
     //text("L - Toggle alerts", x, y + 215);
     //text("M - Return to menu", x, y + 230);
@@ -1161,7 +1218,7 @@ function resumeGameFromCheckpoint() {
 
     } catch (error) {
         console.error('❌ Error in game resumption:', error);
-        // Fallback: just set game state
+        // Fallback: just set game state to playing
         gameState = 'playing';
     }
 }
