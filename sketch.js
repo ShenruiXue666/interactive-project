@@ -177,32 +177,37 @@ function updateGameLogic() {
     }
 
     // Add new skid marks if cars are drifting
-    for (let i = 0; i < cars.length; i++) {
-        let car = cars[i];
-        if (car.state.drifting && car.trail.length > 1) {
-            let lastPoint = car.trail[car.trail.length - 1];
-            let secondLastPoint = car.trail[car.trail.length - 2];
-            let carColor = i === 0 ? NEON_COLORS.cyan : NEON_COLORS.magenta;
-            skidMarks.push({
-                x1: lastPoint.x,
-                y1: lastPoint.y,
-                x2: secondLastPoint.x,
-                y2: secondLastPoint.y,
-                lifetime: 360, // Fade out over 360 frames
-                color: carColor
-            });
-
-            // Emit a burst of particles for the new skid mark
-            for (let j = 0; j < 5; j++) {
-                particles.push({
-                    x: lerp(lastPoint.x, secondLastPoint.x, Math.random()),
-                    y: lerp(lastPoint.y, secondLastPoint.y, Math.random()),
-                    vx: (Math.random() - 0.5) * 1,
-                    vy: (Math.random() - 0.5) * 1,
-                    lifetime: 30, // 0.5 second lifetime
-                    maxLifetime: 30,
+    if (frameCount % 3 === 0) {
+        for (let i = 0; i < cars.length; i++) {
+            let car = cars[i];
+            if (car.state.drifting && car.trail.length > 1) {
+                let lastPoint = car.trail[car.trail.length - 1];
+                let secondLastPoint = car.trail[car.trail.length - 2];
+                let carColor = i === 0 ? NEON_COLORS.cyan : NEON_COLORS.magenta;
+                skidMarks.push({
+                    x1: lastPoint.x,
+                    y1: lastPoint.y,
+                    x2: secondLastPoint.x,
+                    y2: secondLastPoint.y,
+                    lifetime: 360, // Fade out over 360 frames
                     color: carColor
                 });
+
+
+                /* performance issue with particles
+                // Emit a burst of particles for the new skid mark
+                for (let j = 0; j < 5; j++) {
+                    particles.push({
+                        x: lerp(lastPoint.x, secondLastPoint.x, Math.random()),
+                        y: lerp(lastPoint.y, secondLastPoint.y, Math.random()),
+                        vx: (Math.random() - 0.5) * 1,
+                        vy: (Math.random() - 0.5) * 1,
+                        lifetime: 30, // 0.5 second lifetime
+                        maxLifetime: 30,
+                        color: carColor
+                    });
+                }
+                */
             }
         }
     }
@@ -406,7 +411,7 @@ function drawAllSkidMarks() {
 
         // Set stroke color to match the car's color, with fading alpha
         let c = color(mark.color);
-        stroke(red(c) - 150, green(c) - 150, blue(c) - 150, alpha * 150);
+        stroke(red(c) - 100, green(c) - 100, blue(c) - 100, alpha * 150);
         strokeWeight(3);
         line(mark.x1 - 5, mark.y1, mark.x2 - 5, mark.y2);
         line(mark.x1 + 5, mark.y1, mark.x2 + 5, mark.y2);
