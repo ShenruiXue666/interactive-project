@@ -37,6 +37,10 @@ let lapInfo = {
     bestTime: null
 };
 
+// Skid marks
+let skidMarks = [];
+let particles = [];
+
 // Checkpoint activation tracking
 let checkpointActivations = {
     player1: new Array(6).fill(false), // Track which checkpoints player 1 has hit
@@ -127,6 +131,8 @@ function draw() {
         }
         drawNeonGrid();
         drawTrack();
+        drawAllSkidMarks(); // Draw skid marks under the cars
+        updateAndDrawParticles(); // Draw particles
         drawCars();
         if (camera) {
             camera.unapply();
@@ -168,6 +174,37 @@ function updateGameLogic() {
     // Update cars
     for (let car of cars) {
         car.update();
+    }
+
+    // Add new skid marks if cars are drifting
+    for (let i = 0; i < cars.length; i++) {
+        let car = cars[i];
+        if (car.state.drifting && car.trail.length > 1) {
+            let lastPoint = car.trail[car.trail.length - 1];
+            let secondLastPoint = car.trail[car.trail.length - 2];
+            let carColor = i === 0 ? NEON_COLORS.cyan : NEON_COLORS.magenta;
+            skidMarks.push({
+                x1: lastPoint.x,
+                y1: lastPoint.y,
+                x2: secondLastPoint.x,
+                y2: secondLastPoint.y,
+                lifetime: 360, // Fade out over 360 frames
+                color: carColor
+            });
+
+            // Emit a burst of particles for the new skid mark
+            for (let j = 0; j < 5; j++) {
+                particles.push({
+                    x: lerp(lastPoint.x, secondLastPoint.x, Math.random()),
+                    y: lerp(lastPoint.y, secondLastPoint.y, Math.random()),
+                    vx: (Math.random() - 0.5) * 1,
+                    vy: (Math.random() - 0.5) * 1,
+                    lifetime: 30, // 0.5 second lifetime
+                    maxLifetime: 30,
+                    color: carColor
+                });
+            }
+        }
     }
 
     // Update checkpoint effects
@@ -323,9 +360,7 @@ function drawCars() {
         let carColor = i === 0 ? NEON_COLORS.cyan : NEON_COLORS.magenta;
 
         // Draw skid marks first (if drifting)
-        if (car.state && car.state.drifting) {
-            drawSkidMarks(car);
-        }
+        // This is now handled by drawAllSkidMarks() before drawCars()
 
         // Apply glow
         drawingContext.shadowBlur = 20;
@@ -356,25 +391,64 @@ function drawCars() {
 }
 
 /**
- * Draw skid marks for drifting car
+ * Draw all persistent skid marks
  */
-function drawSkidMarks(car) {
+function drawAllSkidMarks() {
     push();
-    stroke(100, 100, 100, 100);
-    strokeWeight(3);
     noFill();
+    for (let i = skidMarks.length - 1; i >= 0; i--) {
+        let mark = skidMarks[i];
+        let alpha = (mark.lifetime / 360); // Fades from 1 to 0
 
-    // Draw a simple trail
-    if (!car.trail) car.trail = [];
-    car.trail.push({ x: car.position.x, y: car.position.y });
-    if (car.trail.length > 20) car.trail.shift();
+        // Apply neon glow effect
+        drawingContext.shadowBlur = 15;
+        drawingContext.shadowColor = mark.color;
 
-    beginShape();
-    for (let point of car.trail) {
-        vertex(point.x, point.y);
+        // Set stroke color to match the car's color, with fading alpha
+        let c = color(mark.color);
+        stroke(red(c) - 150, green(c) - 150, blue(c) - 150, alpha * 150);
+        strokeWeight(3);
+        line(mark.x1 - 5, mark.y1, mark.x2 - 5, mark.y2);
+        line(mark.x1 + 5, mark.y1, mark.x2 + 5, mark.y2);
+
+        mark.lifetime--;
+        if (mark.lifetime <= 0) {
+            skidMarks.splice(i, 1);
+        }
     }
-    endShape();
+    drawingContext.shadowBlur = 0; // Reset shadow
+    pop();
+}
 
+/**
+ * Update and draw all particles
+ */
+function updateAndDrawParticles() {
+    push();
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+
+        // Update position
+        p.x += p.vx;
+        p.y += p.vy;
+        p.lifetime--;
+
+        // Calculate alpha
+        let alpha = p.lifetime / p.maxLifetime;
+
+        // Draw particle
+        let c = color(p.color);
+        drawingContext.shadowBlur = 10;
+        drawingContext.shadowColor = p.color;
+        fill(red(c) - 50, green(c) - 50, blue(c) - 50, alpha * 255);
+        noStroke();
+        circle(p.x, p.y, 3);
+
+        // Remove if lifetime is over
+        if (p.lifetime <= 0) {
+            particles.splice(i, 1);
+        }
+    }
     drawingContext.shadowBlur = 0;
     pop();
 }
@@ -461,9 +535,9 @@ function initializeGame() {
     });
     raceRules = attachRaceRules(Matter, engine, carBodies, {
         onCheckpoint: onCheckpoint,
-        onLap: onLap,
+        // onLap: onLap,
         onWallHit: onWallHit,
-        onPad: onPad
+        // onPad: onPad
     });
 
     // Reset lap info
@@ -660,39 +734,6 @@ function keyPressed() {
         gameState = 'playing';
         console.log("✅ Game state forced to playing");
     }
-
-    // Handbrake/drift boost with Space
-    if (key === ' ' && gameState === 'playing') {
-        // Apply handbrake to all cars
-        for (let car of cars) {
-            if (car.state && car.state.speed > 1) {
-                // Apply handbrake effect - reduce speed and increase drift
-                let velocity = car.body.velocity;
-                let angle = car.body.angle;
-
-                // Calculate forward and lateral components
-                let forward = {
-                    x: Math.cos(angle),
-                    y: Math.sin(angle)
-                };
-
-                let forwardSpeed = velocity.x * forward.x + velocity.y * forward.y;
-                let lateralVelocity = {
-                    x: velocity.x - forward.x * forwardSpeed,
-                    y: velocity.y - forward.y * forwardSpeed
-                };
-
-                // Apply strong drift effect
-                Matter.Body.setVelocity(car.body, {
-                    x: forward.x * forwardSpeed * 0.8 + lateralVelocity.x * 0.7,
-                    y: forward.y * forwardSpeed * 0.8 + lateralVelocity.y * 0.7
-                });
-
-                // Camera shake for handbrake
-                camera.shake(8, 5);
-            }
-        }
-    }
 }
 
 /**
@@ -700,23 +741,6 @@ function keyPressed() {
  */
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
-}
-
-/**
- * Integration points for Person A (Vehicle Physics)
- * These functions will be called by Person A's car.js
- */
-
-// Example: Called when drift starts
-function onDriftStart(carIndex) {
-    camera.shake(5, 5);
-}
-
-// Example: Called when drift ends with score
-function onDriftEnd(carIndex, score, combo) {
-    if (cars[carIndex] && cars[carIndex].state) {
-        cars[carIndex].state.driftScore += score;
-    }
 }
 
 /**
@@ -807,31 +831,6 @@ function onWallHit(carIndex) {
     if (cars[carIndex] && cars[carIndex].state) {
         cars[carIndex].state.driftCombo = 1;
         cars[carIndex].state.driftScore = Math.max(0, cars[carIndex].state.driftScore - 50);
-    }
-}
-
-// Called when car hits boost or grip pad
-function onPad(carIndex, padType) {
-    console.log('Car', carIndex, 'hit', padType, 'pad');
-
-    if (padType === 'boost') {
-        // Apply boost effect
-        if (cars[carIndex]) {
-            let velocity = cars[carIndex].body.velocity;
-            let angle = cars[carIndex].body.angle;
-            let boostForce = 0.1;
-
-            Matter.Body.applyForce(cars[carIndex].body, cars[carIndex].body.position, {
-                x: Math.cos(angle) * boostForce,
-                y: Math.sin(angle) * boostForce
-            });
-        }
-        camera.shake(5, 8);
-    } else if (padType === 'grip') {
-        // Apply grip effect (reduce drift)
-        if (cars[carIndex] && cars[carIndex].state) {
-            cars[carIndex].state.gripBoost = 60; // 1 second at 60fps
-        }
     }
 }
 

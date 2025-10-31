@@ -11,8 +11,8 @@ function wrapPi(a) {
 class Car {
     constructor(x, y, engine, world, controlKeys) {
         // Physics properties
-        this.body = Matter.Bodies.rectangle(x, y, 40, 20, {
-            density: 0.04,
+        this.body = Matter.Bodies.rectangle(x, y, 50, 30, {
+            density: 0.03,
             frictionAir: 0.05,
             restitution: 0.5
         });
@@ -22,16 +22,14 @@ class Car {
         // Car properties
         this.maxSpeed = 40;
         this.maxCollisionSpeed = 10;
-        this.acceleration = 0.05;
-        this.turnSpeed = 0.06;
-        this.driftFactor = 0.95;
+        this.acceleration = 0.08;
+        this.turnSpeed = 0.08;
+        this.driftFactor = 0.90;
 
         // State
         this.state = {
             speed: 0,
             drifting: false,
-            driftScore: 0,
-            driftCombo: 1,
             releaseSpeed: 0
         };
 
@@ -179,10 +177,6 @@ class Car {
         //console.log("Angle Diff:", angleDiff.toFixed(2), "Speed:", this.state.speed.toFixed(2));
 
         this.state.drifting = angleDiff > 0.5 && angleDiff < 1 && this.state.speed > 5;
-
-        if (this.state.drifting) {
-            this.state.driftScore += angleDiff * this.state.driftCombo * 0.5;
-        }
     }
 
     updateTrail() {
