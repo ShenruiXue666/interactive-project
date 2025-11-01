@@ -44,8 +44,15 @@ let checkpointActivations = {
 };
 let checkpointEffects = []; // Visual effects for activated checkpoints
 let checkpointCooldowns = []; // Prevent multiple activations
-let alertCooldowns = []; // Prevent multiple alert popups
-let showCheckpointAlerts = true; // Toggle for checkpoint alerts (default ON)
+// Person B: remove blocking alerts; keep placeholders to avoid broad changes
+let alertCooldowns = []; // No longer used for popups
+let showCheckpointAlerts = false; // Popups disabled
+// Person B: temporary activation window per checkpoint (for color reset)
+let checkpointActiveUntil = []; // millis until which each checkpoint stays green
+// Person B: per-player checkpoint counters (two-player mode)
+let checkpointCounter = [0, 0];
+// Person B: last non-zero movement direction per car (for unstuck nudge)
+let lastMovementDir = []; // Array of {x, y} unit vectors
 
 // Visual settings
 const NEON_GRID_SIZE = 100;
@@ -134,10 +141,10 @@ function draw() {
 
         // Draw HUD (no camera transform)
         drawHUD();
-        
+
         // Draw checkpoint activation effects
         drawCheckpointEffects();
-        
+
         // Draw checkpoint status
         drawCheckpointStatus();
 
@@ -166,13 +173,34 @@ function updateGameLogic() {
     lapInfo.currentTime += deltaTime;
 
     // Update cars
-    for (let car of cars) {
+    for (let i = 0; i < cars.length; i++) {
+        let car = cars[i];
         car.update();
+        // Person B: Track last meaningful movement direction per car
+        if (car && car.body && car.body.velocity) {
+            let vx = car.body.velocity.x || 0;
+            let vy = car.body.velocity.y || 0;
+            let sp = Math.hypot(vx, vy);
+            // Only update when moving enough to be meaningful
+            if (sp > 0.2) {
+                lastMovementDir[i] = { x: vx / sp, y: vy / sp };
+            }
+        }
     }
-    
+
     // Update checkpoint effects
     updateCheckpointEffects();
-    
+
+    // Person B: Update turret spray logic and apply forces to cars
+    // Works identically for both single-player and two-player modes
+    if (track && track.turrets && track.turretData && track.turretState && cars.length > 0) {
+        // Get all car bodies (1 car for single-player, 2 cars for two-player)
+        let carBodies = cars.map(c => c.body).filter(b => b != null);
+        if (carBodies.length > 0 && typeof updateTurrets === 'function') {
+            track.turretState = updateTurrets(track.turretState, track.turretData, track.turrets, carBodies, Matter);
+        }
+    }
+
     // Check for proximity to checkpoints (backup detection)
     checkCheckpointProximity();
 }
@@ -187,7 +215,7 @@ function drawHUD() {
         // Get lap info for both players from race rules
         let player1LapInfo = raceRules ? raceRules.getLapInfo(0) : lapInfo;
         let player2LapInfo = raceRules ? raceRules.getLapInfo(1) : lapInfo;
-        
+
         hud.drawTwoPlayer(
             cars[0].state || {},
             cars[1].state || {},
@@ -253,11 +281,11 @@ function drawTrack() {
     for (let wall of track.walls) {
         let pos = wall.position;
         let angle = wall.angle;
-        
+
         // Get wall dimensions from bounds
         let width = wall.bounds.max.x - wall.bounds.min.x;
         let height = wall.bounds.max.y - wall.bounds.min.y;
-        
+
         push();
         translate(pos.x, pos.y);
         rotate(angle);
@@ -270,12 +298,12 @@ function drawTrack() {
     stroke(NEON_COLORS.yellow);
     strokeWeight(3);
     drawingContext.shadowColor = NEON_COLORS.yellow;
-    
+
     let startPos = track.startSensor.position;
     let startBounds = track.startSensor.bounds;
     let startWidth = startBounds.max.x - startBounds.min.x;
     let startHeight = startBounds.max.y - startBounds.min.y;
-    
+
     push();
     translate(startPos.x, startPos.y);
     rectMode(CENTER);
@@ -287,10 +315,10 @@ function drawTrack() {
         let checkpoint = track.checkpoints[i];
         let pos = checkpoint.position;
         let radius = checkpoint.circleRadius || 35;
-        
-        // Check if this checkpoint is activated
-        let isActivated = checkpointActivations.player1[i] || checkpointActivations.player2[i];
-        
+
+        // Check if this checkpoint is activated (time-based)
+        let isActivated = checkpointActiveUntil && checkpointActiveUntil[i] && millis() < checkpointActiveUntil[i];
+
         if (isActivated) {
             // Activated checkpoint - bright green with glow
             stroke('#00ff00');
@@ -304,8 +332,101 @@ function drawTrack() {
             drawingContext.shadowBlur = 10;
             drawingContext.shadowColor = NEON_COLORS.cyan;
         }
-        
+
         circle(pos.x, pos.y, radius * 2);
+    }
+
+    // Person B: Draw turrets with pulsing glow and wide random spray particles
+    if (track.turrets && track.turretData && track.turretState) {
+        for (let i = 0; i < track.turrets.length; i++) {
+            let turret = track.turrets[i];
+            let turData = track.turretData[i];
+            let turState = track.turretState;
+            
+            if (!turret || !turData) continue;
+            
+            let pos = turret.position;
+            let glow = turState.glowIntensity && turState.glowIntensity[i] ? turState.glowIntensity[i] : 0;
+            
+            // Draw pulsing glow around turret when active
+            if (glow > 0) {
+                push();
+                noFill();
+                stroke(100, 200, 255, glow * 120);
+                strokeWeight(3);
+                drawingContext.shadowBlur = glow * 25;
+                drawingContext.shadowColor = 'rgba(100, 200, 255, ' + (glow * 0.8) + ')';
+                circle(pos.x, pos.y, 60 + glow * 20); // Glow expands with intensity
+                drawingContext.shadowBlur = 0;
+                pop();
+            }
+            
+            // Draw turret base (small rectangle)
+            push();
+            translate(pos.x, pos.y);
+            stroke('#00aaff');
+            strokeWeight(2);
+            fill('#0066aa');
+            drawingContext.shadowBlur = 10 + glow * 15;
+            drawingContext.shadowColor = glow > 0 ? '#00ffff' : '#00aaff';
+            rectMode(CENTER);
+            rect(0, 0, 40, 40);
+            
+            // Draw center indicator
+            fill('#00ffff');
+            noStroke();
+            circle(0, 0, 8);
+            drawingContext.shadowBlur = 0;
+            pop();
+            
+            // Draw active spray particles if spraying (random directions, wide spread)
+            if (turState.activeSprays && turState.activeSprays[i] && turState.particles && turState.particles[i]) {
+                for (let p of turState.particles[i]) {
+                    if (!p || p.life <= 0) continue;
+                    
+                    // Calculate current particle position (animated toward target)
+                    let progress = 1 - (p.life / p.maxLife);
+                    let currentX = p.x + (p.tx - p.x) * progress;
+                    let currentY = p.y + (p.ty - p.y) * progress;
+                    let alpha = (p.life / p.maxLife) * 200; // Fade out
+                    
+                    // Draw larger, more visible particles with trail
+                    push();
+                    fill(100, 200, 255, alpha);
+                    stroke(150, 220, 255, alpha * 0.8);
+                    strokeWeight(1.5);
+                    drawingContext.shadowBlur = 8;
+                    drawingContext.shadowColor = 'rgba(100, 200, 255, ' + (alpha / 255) + ')';
+                    circle(currentX, currentY, 5 + progress * 2); // Slightly larger particles
+                    drawingContext.shadowBlur = 0;
+                    
+                    // Draw trail line back to turret for longer spray effect
+                    if (progress > 0.2) {
+                        stroke(100, 200, 255, alpha * 0.4);
+                        strokeWeight(1);
+                        line(p.x, p.y, currentX, currentY);
+                    }
+                    pop();
+                }
+                
+                // Draw wider spray area indicator (full circle spray, not directional)
+                if (turState.activeSprays[i]) {
+                    push();
+                    noFill();
+                    stroke(100, 200, 255, 60);
+                    strokeWeight(2);
+                    drawingContext.shadowBlur = 10;
+                    drawingContext.shadowColor = 'rgba(100, 200, 255, 0.3)';
+                    // Draw multiple concentric circles to show spray range
+                    let sprayRange = turData.sprayRadius || 120;
+                    for (let r = sprayRange * 0.3; r <= sprayRange; r += sprayRange * 0.2) {
+                        circle(pos.x, pos.y, r * 2);
+                    }
+                    drawingContext.shadowBlur = 0;
+                    pop();
+                }
+            }
+        }
     }
 
     drawingContext.shadowBlur = 0;
@@ -342,12 +463,11 @@ function drawCars() {
 
         // Simple car shape
         rectMode(CENTER);
-        rect(0, 0, 40, 20);
+        rect(0, 0, 50, 30);
 
         // Headlights
         fill(255, 255, 0);
-        ellipse(15, -7, 5);
-        ellipse(15, 7, 5);
+        rect(25, 0, 10, 30);
 
         pop();
     }
@@ -407,7 +527,7 @@ function drawMenuBackground() {
 function initializeTrack() {
     // Build the track using Person B's track.js
     track = buildTrack(Matter, world);
-    
+
     console.log('Track initialized with bounds:', track.bounds);
 }
 
@@ -474,10 +594,13 @@ function initializeGame() {
         lastTime: null,
         bestTime: null
     };
-    
-    // Reset checkpoint activations
-    checkpointActivations.player1.fill(false);
-    checkpointActivations.player2.fill(false);
+
+    // Reset checkpoint activations and timers
+    let cpCount = (track && track.checkpoints) ? track.checkpoints.length : 6;
+    checkpointActivations.player1 = new Array(cpCount).fill(false);
+    checkpointActivations.player2 = new Array(cpCount).fill(false);
+    checkpointActiveUntil = new Array(cpCount).fill(0);
+    checkpointCounter = [0, 0];
     checkpointEffects = [];
 
     console.log('Game initialized with', cars.length, 'car(s)');
@@ -568,33 +691,33 @@ function resumeGame() {
  */
 function restartGame() {
     console.log("🔄 RESTARTING GAME...");
-    
+
     // Force game state to playing
     gameState = 'playing';
-    
+
     // Clear any blocking states
     checkpointCooldowns = [];
     alertCooldowns = [];
     checkpointEffects = [];
-    
+
     // Reset checkpoint activations
     if (checkpointActivations) {
         checkpointActivations.player1.fill(false);
         checkpointActivations.player2.fill(false);
     }
-    
+
     // Resume game
     resumeGame();
-    
+
     // Reinitialize game
     initializeGame();
-    
+
     // Reset camera
     if (camera) {
         camera.x = 0;
         camera.y = 0;
     }
-    
+
     console.log("✅ Game restarted successfully");
 }
 
@@ -642,26 +765,76 @@ function keyPressed() {
         console.log("🧪 TESTING CHECKPOINT ACTIVATION!");
         onCheckpoint(0, 0); // Force activate checkpoint 0 for player 0
     }
-    
+
     // Toggle checkpoint alerts with L key (L for "alerts")
     if (key === 'l' || key === 'L') {
         showCheckpointAlerts = !showCheckpointAlerts;
         console.log("🔔 Checkpoint alerts:", showCheckpointAlerts ? "ENABLED" : "DISABLED");
     }
-    
+
     // Return to menu with M key
     if (key === 'm' || key === 'M') {
         console.log("🏁 Returning to menu");
         returnToMenu();
     }
-    
+
     // Force game state to playing with G key (if stuck)
     if (key === 'g' || key === 'G') {
         console.log("🔄 FORCING GAME STATE TO PLAYING");
         gameState = 'playing';
         console.log("✅ Game state forced to playing");
     }
-    
+
+    // Person B: Unstuck nudge with U key (gentle but reliable push)
+    if (key === 'u' || key === 'U') {
+        // We give a tiny velocity kick + a small force so it feels natural.
+        // This avoids a huge launch while still getting out of penetration.
+        const kickSpeed = 6;     // quick, small speed burst
+        const forceMag  = 0.06;  // follow-up force for one step
+        for (let i = 0; i < cars.length; i++) {
+            let car = cars[i];
+            if (!car || !car.body) continue;
+
+            // Use last movement; if nearly zero, fallback to car facing
+            let dir = lastMovementDir[i];
+            let useFacingFallback = false;
+            if (!dir || !isFinite(dir.x) || !isFinite(dir.y)) {
+                useFacingFallback = true;
+            } else if (Math.hypot(dir.x, dir.y) < 0.5) {
+                useFacingFallback = true;
+            }
+            if (useFacingFallback) {
+                let angle = car.body.angle || 0;
+                dir = { x: Math.cos(angle), y: Math.sin(angle) };
+            }
+
+            // Opposite direction to back away from the obstacle
+            let ox = -dir.x;
+            let oy = -dir.y;
+            let len = Math.hypot(ox, oy) || 1;
+            ox /= len; oy /= len;
+
+            // Instant tiny kick (velocity change feels responsive when stuck)
+            let v = car.body.velocity || { x: 0, y: 0 };
+            Matter.Body.setVelocity(car.body, {
+                x: v.x + ox * kickSpeed,
+                y: v.y + oy * kickSpeed
+            });
+
+            // One-step force to keep the car separating from the wall
+            Matter.Body.applyForce(car.body, car.body.position, {
+                x: ox * forceMag,
+                y: oy * forceMag
+            });
+
+            // Tiny positional bias can help when deeply interpenetrating
+            // (kept very small to avoid teleporting)
+            Matter.Body.translate(car.body, { x: ox * 2, y: oy * 2 });
+
+            if (camera && camera.shake) camera.shake(2, 3);
+        }
+        console.log("🛠️ Unstuck nudge applied (kick+force)");
+    }
     // Handbrake/drift boost with Space
     if (key === ' ' && gameState === 'playing') {
         // Apply handbrake to all cars
@@ -670,25 +843,25 @@ function keyPressed() {
                 // Apply handbrake effect - reduce speed and increase drift
                 let velocity = car.body.velocity;
                 let angle = car.body.angle;
-                
+
                 // Calculate forward and lateral components
                 let forward = {
                     x: Math.cos(angle),
                     y: Math.sin(angle)
                 };
-                
+
                 let forwardSpeed = velocity.x * forward.x + velocity.y * forward.y;
                 let lateralVelocity = {
                     x: velocity.x - forward.x * forwardSpeed,
                     y: velocity.y - forward.y * forwardSpeed
                 };
-                
+
                 // Apply strong drift effect
                 Matter.Body.setVelocity(car.body, {
                     x: forward.x * forwardSpeed * 0.8 + lateralVelocity.x * 0.7,
                     y: forward.y * forwardSpeed * 0.8 + lateralVelocity.y * 0.7
                 });
-                
+
                 // Camera shake for handbrake
                 camera.shake(8, 5);
             }
@@ -746,25 +919,35 @@ function onCheckpoint(carIndex, checkpointIndex) {
         // Check if this checkpoint was already activated recently (only for visual effects, not alerts)
         let cooldownKey = `${carIndex}-${checkpointIndex}`;
         let wasRecentlyActivated = checkpointCooldowns[cooldownKey] && checkpointCooldowns[cooldownKey] > millis() - 500;
-        
+
         if (wasRecentlyActivated) {
             console.log("⏰ Checkpoint", checkpointIndex, "already activated recently for car", carIndex);
             // Don't return early - still show alert but skip visual effects
         }
-        
+
         console.log('🎯 CHECKPOINT ACTIVATED! Car', carIndex, 'hit checkpoint', checkpointIndex);
-        
+
         // Set cooldown to prevent duplicate activations
         checkpointCooldowns[cooldownKey] = millis();
-        
-        // Track checkpoint activation safely
-        if (checkpointActivations && checkpointActivations.player1 && carIndex < checkpointActivations.player1.length) {
+
+        // Track checkpoint activation safely (per player)
+        if (carIndex === 0 && checkpointActivations && checkpointActivations.player1) {
             checkpointActivations.player1[checkpointIndex] = true;
         }
-        if (checkpointActivations && checkpointActivations.player2 && carIndex < checkpointActivations.player2.length) {
+        if (carIndex === 1 && checkpointActivations && checkpointActivations.player2) {
             checkpointActivations.player2[checkpointIndex] = true;
         }
-        
+
+        // Mark checkpoint as active for a short time (auto reset)
+        if (checkpointActiveUntil && typeof millis === 'function') {
+            checkpointActiveUntil[checkpointIndex] = millis() + 2500; // ~2.5s
+        }
+
+        // Increment player checkpoint counter in two-player mode
+        if (gameMode === 'two-player' && checkpointCounter && checkpointCounter.length >= 2) {
+            checkpointCounter[carIndex] = (checkpointCounter[carIndex] || 0) + 1;
+        }
+
         // Create visual effect safely (only if not recently activated)
         if (!wasRecentlyActivated && track && track.checkpoints && track.checkpoints[checkpointIndex] && checkpointEffects) {
             let checkpoint = track.checkpoints[checkpointIndex];
@@ -776,25 +959,17 @@ function onCheckpoint(carIndex, checkpointIndex) {
                 player: carIndex
             });
         }
-        
+
         // Camera shake for checkpoint (safely)
         if (camera && camera.shake) {
             camera.shake(3, 5);
         }
-        
+
         console.log('✅ Checkpoint activation completed successfully');
-        
-        // Show checkpoint alert (with separate cooldown to prevent spam)
-        if (showCheckpointAlerts) {
-            let alertKey = `${carIndex}-${checkpointIndex}`;
-            if (!alertCooldowns[alertKey] || alertCooldowns[alertKey] < millis() - 2000) {
-                alertCooldowns[alertKey] = millis();
-                showCheckpointAlert(carIndex, checkpointIndex);
-            } else {
-                console.log("⏰ Alert for checkpoint", checkpointIndex, "on cooldown for car", carIndex);
-            }
-        }
-        
+
+        // Popups removed by design; retained visual notification only
+        showCheckpointNotification(carIndex, checkpointIndex);
+
     } catch (error) {
         console.error('❌ Error in checkpoint activation:', error);
     }
@@ -814,14 +989,14 @@ function onWallHit(carIndex) {
 // Called when car hits boost or grip pad
 function onPad(carIndex, padType) {
     console.log('Car', carIndex, 'hit', padType, 'pad');
-    
+
     if (padType === 'boost') {
         // Apply boost effect
         if (cars[carIndex]) {
             let velocity = cars[carIndex].body.velocity;
             let angle = cars[carIndex].body.angle;
             let boostForce = 0.1;
-            
+
             Matter.Body.applyForce(cars[carIndex].body, cars[carIndex].body.position, {
                 x: Math.cos(angle) * boostForce,
                 y: Math.sin(angle) * boostForce
@@ -843,7 +1018,7 @@ function updateCheckpointEffects() {
     for (let i = checkpointEffects.length - 1; i >= 0; i--) {
         let effect = checkpointEffects[i];
         effect.timer--;
-        
+
         if (effect.timer <= 0) {
             checkpointEffects.splice(i, 1);
         }
@@ -855,25 +1030,25 @@ function updateCheckpointEffects() {
  */
 function drawCheckpointEffects() {
     push();
-    
+
     for (let i = checkpointEffects.length - 1; i >= 0; i--) {
         let effect = checkpointEffects[i];
         let alpha = effect.timer / effect.maxTimer;
-        
+
         if (effect.message) {
             // This is a notification - draw it differently
             textAlign(CENTER, CENTER);
             textSize(20);
             fill(0, 255, 0, alpha * 255);
-            
+
             // Draw background box
             fill(0, 0, 0, alpha * 150);
             rect(effect.x - 150, effect.y - 20, 300, 40);
-            
+
             // Draw text
             fill(0, 255, 0, alpha * 255);
             text(effect.message, effect.x, effect.y);
-            
+
             // Update timer
             effect.timer--;
             if (effect.timer <= 0) {
@@ -882,17 +1057,17 @@ function drawCheckpointEffects() {
         } else {
             // This is a visual effect - draw expanding ring
             let scaleValue = 1 + (1 - alpha) * 2;
-            
+
             stroke(0, 255, 0, alpha * 255);
             strokeWeight(3);
             noFill();
-            
+
             push();
             translate(effect.x, effect.y);
             scale(scaleValue);
             circle(0, 0, 70);
             pop();
-            
+
             // Draw "CHECKPOINT!" text
             if (alpha > 0.5) {
                 textAlign(CENTER, CENTER);
@@ -900,7 +1075,7 @@ function drawCheckpointEffects() {
                 fill(0, 255, 0, alpha * 255);
                 text('CHECKPOINT!', effect.x, effect.y - 50);
             }
-            
+
             // Update timer
             effect.timer--;
             if (effect.timer <= 0) {
@@ -908,7 +1083,7 @@ function drawCheckpointEffects() {
             }
         }
     }
-    
+
     pop();
 }
 
@@ -918,44 +1093,44 @@ function drawCheckpointEffects() {
 function checkCheckpointProximity() {
     try {
         if (!track || !track.checkpoints || !cars) return;
-        
+
         for (let carIndex = 0; carIndex < cars.length; carIndex++) {
             let car = cars[carIndex];
             if (!car || !car.position) continue;
-            
+
             let carPos = car.position;
-            
+
             for (let cpIndex = 0; cpIndex < track.checkpoints.length; cpIndex++) {
                 let checkpoint = track.checkpoints[cpIndex];
                 if (!checkpoint || !checkpoint.position) continue;
-                
+
                 let cpPos = checkpoint.position;
                 let cpRadius = checkpoint.circleRadius || 35;
-                
+
                 // Calculate distance between car and checkpoint
                 let distance = Math.sqrt(
-                    Math.pow(carPos.x - cpPos.x, 2) + 
+                    Math.pow(carPos.x - cpPos.x, 2) +
                     Math.pow(carPos.y - cpPos.y, 2)
                 );
-                
+
                 // If car is inside checkpoint radius
                 if (distance < cpRadius) {
                     // Create unique key for this car-checkpoint combination
                     let cooldownKey = `${carIndex}-${cpIndex}`;
-                    
-                // Check cooldown to prevent spam (reduced to 1 second)
-                if (!checkpointCooldowns[cooldownKey] || checkpointCooldowns[cooldownKey] < millis() - 1000) {
-                    console.log("🎯 PROXIMITY DETECTED! Car", carIndex, "inside checkpoint", cpIndex);
-                    
-                    // Set cooldown
-                    checkpointCooldowns[cooldownKey] = millis();
-                    
-                    // Always trigger checkpoint activation (simplified)
-                    console.log("✅ TRIGGERING CHECKPOINT ACTIVATION!");
-                    onCheckpoint(carIndex, cpIndex);
-                } else {
-                    console.log("⏰ Checkpoint", cpIndex, "on cooldown for car", carIndex);
-                }
+
+                    // Check cooldown to prevent spam (reduced to 1 second)
+                    if (!checkpointCooldowns[cooldownKey] || checkpointCooldowns[cooldownKey] < millis() - 1000) {
+                        console.log("🎯 PROXIMITY DETECTED! Car", carIndex, "inside checkpoint", cpIndex);
+
+                        // Set cooldown
+                        checkpointCooldowns[cooldownKey] = millis();
+
+                        // Always trigger checkpoint activation (simplified)
+                        console.log("✅ TRIGGERING CHECKPOINT ACTIVATION!");
+                        onCheckpoint(carIndex, cpIndex);
+                    } else {
+                        console.log("⏰ Checkpoint", cpIndex, "on cooldown for car", carIndex);
+                    }
                 }
             }
         }
@@ -968,41 +1143,8 @@ function checkCheckpointProximity() {
  * Show checkpoint alert dialog (NON-BLOCKING with alert popup)
  */
 function showCheckpointAlert(carIndex, checkpointIndex) {
-    try {
-        console.log(`🎯 CHECKPOINT ${checkpointIndex + 1} ACTIVATED! Player ${carIndex + 1} reached checkpoint ${checkpointIndex + 1}!`);
-        
-        // Show alert popup but make it non-blocking
-        let message = `🎯 CHECKPOINT ${checkpointIndex + 1} ACTIVATED!\n\nPlayer ${carIndex + 1} reached checkpoint ${checkpointIndex + 1}!\n\nWhat would you like to do?`;
-        
-        // Use setTimeout to make the dialog non-blocking
-        setTimeout(() => {
-            try {
-                let choice = confirm(message + "\n\nClick OK to continue racing\nClick Cancel to return to menu");
-                
-                if (!choice) {
-                    // User chose to return to menu
-                    console.log("🏁 Player chose to return to menu");
-                    returnToMenu();
-                } else {
-                    // User chose to continue
-                    console.log("🏁 Player chose to continue racing");
-                    gameState = 'playing';
-                    console.log("✅ Game state set to playing");
-                }
-            } catch (error) {
-                console.error('❌ Error in checkpoint alert dialog:', error);
-                gameState = 'playing';
-            }
-        }, 50); // Very small delay to prevent blocking
-        
-        // Also show visual notification
-        showCheckpointNotification(carIndex, checkpointIndex);
-        
-    } catch (error) {
-        console.error('❌ Error in checkpoint alert:', error);
-        // Even if there's an error, ensure game continues
-        gameState = 'playing';
-    }
+    // Person B: Alerts removed. Use non-blocking notification only.
+    showCheckpointNotification(carIndex, checkpointIndex);
 }
 
 /**
@@ -1018,10 +1160,10 @@ function showCheckpointNotification(carIndex, checkpointIndex) {
         x: width / 2,
         y: height / 3
     };
-    
+
     // Add to effects array for drawing
     checkpointEffects.push(notification);
-    
+
     console.log("✅ Checkpoint notification shown (non-blocking)");
 }
 
@@ -1030,39 +1172,41 @@ function showCheckpointNotification(carIndex, checkpointIndex) {
  */
 function drawCheckpointStatus() {
     if (!checkpointActivations) return;
-    
+
     push();
-    
+
     // Draw checkpoint status in top-right corner
     let x = width - 200;
     let y = 20;
-    
+
     textAlign(LEFT, TOP);
     textSize(14);
     fill(255);
     text("CHECKPOINTS:", x, y);
-    
+
     // Draw checkpoint indicators
     for (let i = 0; i < 6; i++) {
         let isActivated = checkpointActivations.player1[i] || checkpointActivations.player2[i];
         let color = isActivated ? '#00ff00' : '#666666';
-        
+
         fill(color);
         text(`CP${i + 1}: ${isActivated ? '✓' : '○'}`, x, y + 20 + (i * 15));
     }
-    
-    // Show alert status
-    fill(showCheckpointAlerts ? '#00ff00' : '#ff6666');
-    text(`Alerts: ${showCheckpointAlerts ? 'ON' : 'OFF'} (Press L)`, x, y + 120);
-    
+
     // Show controls
     fill(255);
     text("Controls:", x, y + 140);
-    text("T - Test checkpoint", x, y + 155);
-    text("L - Toggle alerts", x, y + 170);
-    text("M - Return to menu", x, y + 185);
-    text("G - Force resume (if stuck)", x, y + 200);
-    
+    text("M - Return to menu", x, y + 155);
+    text("R - Respawn", x, y + 170);
+    text("U - Unstuck nudge", x, y + 185);
+
+    // Two-player checkpoint counters (Person B requirement)
+    if (gameMode === 'two-player') {
+        fill(255);
+        text(`P1 CP Count: ${checkpointCounter[0] || 0}`, x, y + 205);
+        text(`P2 CP Count: ${checkpointCounter[1] || 0}`, x, y + 220);
+    }
+
     pop();
 }
 
@@ -1072,23 +1216,23 @@ function drawCheckpointStatus() {
 function resumeGameFromCheckpoint() {
     try {
         console.log("🔄 FORCING GAME RESUMPTION...");
-        
+
         // Ensure game state is playing
         gameState = 'playing';
-        
+
         // Ensure physics engine is running
         if (engine && engine.world) {
             console.log("✅ Physics engine confirmed running");
         }
-        
+
         // Force a frame update to get things moving
         console.log("✅ Game resumption complete - should be running smoothly now");
-        
+
         // Additional safety: ensure draw loop continues
         if (typeof draw === 'function') {
             console.log("✅ Draw function available");
         }
-        
+
     } catch (error) {
         console.error('❌ Error in game resumption:', error);
         // Fallback: just set game state
