@@ -59,6 +59,137 @@
      { x: 400, y: 1000, r: 35 },   // CP4 - Middle-left (moved away from obstacle)
      { x: 1100, y: 1600, r: 35 }   // CP5 - Bottom-left (moved away from obstacle)
    ];
+  
+  // Person B: randomization config (kept simple and deterministic bounds)
+  var RANDOMIZATION = {
+    enable: true,
+    checkpointCount: 6,
+    checkpointRadius: 35,
+    checkpointMinSpacing: 320, // enforce min distance between checkpoints
+    obstacleCount: 9, // match CURVED_BARRIERS default length
+    obstacleSize: { wMin: 100, wMax: 160, hMin: 18, hMax: 26 },
+    obstacleAngleMax: 0.4,
+    margin: 60,       // keep away from outer walls
+    maxAttempts: 2000 // while-loop guard per set
+  };
+  
+  // Helper: pick random number in [a, b]
+  function randRange(a, b) { return a + Math.random() * (b - a); }
+  
+  // Helper: circle-circle overlap
+  function circlesOverlap(ax, ay, ar, bx, by, br) {
+    var dx = ax - bx; var dy = ay - by; var r = ar + br; return (dx * dx + dy * dy) < (r * r);
+  }
+  
+  // Helper: circle-rect overlap (rect centered, rotated)
+  function circleRectOverlap(cx, cy, cr, rx, ry, rw, rh, ra) {
+    // Transform circle into rectangle's local space by inverse rotation
+    var cosA = Math.cos(-ra), sinA = Math.sin(-ra);
+    var lx = cosA * (cx - rx) - sinA * (cy - ry);
+    var ly = sinA * (cx - rx) + cosA * (cy - ry);
+    var hw = rw / 2, hh = rh / 2;
+    // Closest point on AABB to circle center
+    var closestX = Math.max(-hw, Math.min(lx, hw));
+    var closestY = Math.max(-hh, Math.min(ly, hh));
+    var dx = lx - closestX, dy = ly - closestY;
+    return (dx * dx + dy * dy) < (cr * cr);
+  }
+  
+  // Helper: rect-rect overlap (both centered, rotated). Cheap SAT with only two axes (of A);
+  // adequate for small thin obstacles. We keep conservative.
+  function rectsOverlap(ax, ay, aw, ah, aa, bx, by, bw, bh, ba) {
+    function getCorners(x, y, w, h, a) {
+      var hw = w / 2, hh = h / 2;
+      var c = Math.cos(a), s = Math.sin(a);
+      return [
+        { x: x + c * (-hw) - s * (-hh), y: y + s * (-hw) + c * (-hh) },
+        { x: x + c * ( hw) - s * (-hh), y: y + s * ( hw) + c * (-hh) },
+        { x: x + c * ( hw) - s * ( hh), y: y + s * ( hw) + c * ( hh) },
+        { x: x + c * (-hw) - s * ( hh), y: y + s * (-hw) + c * ( hh) }
+      ];
+    }
+    function project(poly, ax, ay) {
+      var min = Infinity, max = -Infinity;
+      for (var i = 0; i < poly.length; i++) {
+        var p = poly[i];
+        var dot = p.x * ax + p.y * ay;
+        if (dot < min) min = dot;
+        if (dot > max) max = dot;
+      }
+      return { min: min, max: max };
+    }
+    function overlapOnAxis(pa, pb) { return !(pa.max < pb.min || pb.max < pa.min); }
+    var A = getCorners(ax, ay, aw, ah, aa);
+    var B = getCorners(bx, by, bw, bh, ba);
+    // Axes = normals of A's edges (2 unique for rectangle)
+    var axes = [
+      { x: A[1].x - A[0].x, y: A[1].y - A[0].y },
+      { x: A[3].x - A[0].x, y: A[3].y - A[0].y }
+    ];
+    for (var k = 0; k < axes.length; k++) {
+      var axv = axes[k];
+      var len = Math.hypot(axv.x, axv.y) || 1;
+      var nx = axv.x / len, ny = axv.y / len; // axis unit
+      var pa = project(A, nx, ny), pb = project(B, nx, ny);
+      if (!overlapOnAxis(pa, pb)) return false;
+    }
+    return true;
+  }
+  
+  // Person B: Randomize obstacles first, then checkpoints with spacing and no-overlap
+  function randomizeTrackLayout_() {
+    if (!RANDOMIZATION.enable) return;
+    var W = WORLD_BOUNDS.W, H = WORLD_BOUNDS.H, M = RANDOMIZATION.margin;
+    // 1) Obstacles: free-form rectangles scattered around (no need to avoid checkpoints yet)
+    var obs = [];
+    var attempts = 0;
+    while (obs.length < RANDOMIZATION.obstacleCount && attempts < RANDOMIZATION.maxAttempts) {
+      attempts++;
+      var ox = randRange(M, W - M);
+      var oy = randRange(M, H - M);
+      var ow = randRange(RANDOMIZATION.obstacleSize.wMin, RANDOMIZATION.obstacleSize.wMax);
+      var oh = randRange(RANDOMIZATION.obstacleSize.hMin, RANDOMIZATION.obstacleSize.hMax);
+      var oa = randRange(-RANDOMIZATION.obstacleAngleMax, RANDOMIZATION.obstacleAngleMax);
+      var okO = true;
+      // avoid with existing obstacles
+      if (okO) {
+        for (var j = 0; j < obs.length; j++) {
+          var o = obs[j];
+          if (rectsOverlap(ox, oy, ow, oh, oa, o.x, o.y, o.w, o.h, o.a)) { okO = false; break; }
+        }
+      }
+      if (okO) obs.push({ x: ox, y: oy, w: ow, h: oh, a: oa });
+    }
+    if (obs.length === RANDOMIZATION.obstacleCount) CURVED_BARRIERS = obs;
+
+    // 2) Checkpoints: enforce min spacing and avoid obstacles
+    var cps = [];
+    attempts = 0;
+    while (cps.length < RANDOMIZATION.checkpointCount && attempts < RANDOMIZATION.maxAttempts) {
+      attempts++;
+      var cx = randRange(M, W - M);
+      var cy = randRange(M, H - M);
+      var ok = true;
+      // keep checkpoints separated by a minimum spacing
+      for (var i = 0; i < cps.length; i++) {
+        var dx = cx - cps[i].x; var dy = cy - cps[i].y;
+        if ((dx * dx + dy * dy) < (RANDOMIZATION.checkpointMinSpacing * RANDOMIZATION.checkpointMinSpacing)) {
+          ok = false; break;
+        }
+      }
+      // avoid overlapping any obstacle (approximate by circle-rect test)
+      if (ok) {
+        for (var k = 0; k < CURVED_BARRIERS.length; k++) {
+          var o2 = CURVED_BARRIERS[k];
+          if (circleRectOverlap(cx, cy, RANDOMIZATION.checkpointRadius * 1.2, o2.x, o2.y, o2.w, o2.h, o2.a)) {
+            ok = false; break;
+          }
+        }
+      }
+      if (ok) cps.push({ x: cx, y: cy, r: RANDOMIZATION.checkpointRadius });
+    }
+    if (cps.length === RANDOMIZATION.checkpointCount) CHECKPOINTS = cps;
+  }
    
    /* ------------------------------------------------------------
       8) CURVED BARRIERS (extra walls) (new)
@@ -95,6 +226,81 @@
      { x: 1400, y: 1600, w: 200, h: 40 }   // Bottom area
    ];
    
+   /* ------------------------------------------------------------
+      12) TURRET SYSTEM (new)
+      Static turrets that spray water pressure to push cars away
+      Person B: Turret system for challenging gameplay
+      - Multiple turrets (4-6) placed with spacing
+      - Push cars away when they enter trigger radius
+      - Random spray directions for visual effect
+   ------------------------------------------------------------- */
+   var TURRET_CONFIG = {
+     count: 8,                    // Number of turrets - increased for better coverage
+     triggerRadius: 450,          // Small inner radius for activation/reactivation - easy to exit/re-enter (400-500px)
+     forceRadius: 1100,            // Large outer radius for push force - affects cars far away (1000-1200px)
+     sprayRadius: 120,            // Visual spray radius (wider for visibility)
+     minSpacing: 750,            // Minimum distance between turrets - ensures even spacing (700-800px)
+     margin: 80                   // Keep away from world edges
+   };
+   
+   var TURRETS = []; // Will be populated by randomizeTurrets_()
+   
+   // Person B: Randomize turret placement with spacing constraints
+   function randomizeTurrets_() {
+     var W = WORLD_BOUNDS.W, H = WORLD_BOUNDS.H, M = TURRET_CONFIG.margin;
+     var turrets = [];
+     var attempts = 0;
+     var maxAttempts = 1000;
+     
+     while (turrets.length < TURRET_CONFIG.count && attempts < maxAttempts) {
+       attempts++;
+       var tx = randRange(M, W - M);
+       var ty = randRange(M, H - M);
+       var ok = true;
+       
+       // Check spacing from existing turrets
+       for (var j = 0; j < turrets.length; j++) {
+         var existing = turrets[j];
+         var dx = tx - existing.x;
+         var dy = ty - existing.y;
+         var dist = Math.hypot(dx, dy);
+         if (dist < TURRET_CONFIG.minSpacing) {
+           ok = false;
+           break;
+         }
+       }
+       
+       // Check spacing from checkpoints (avoid placing too close)
+       if (ok) {
+         for (var c = 0; c < CHECKPOINTS.length; c++) {
+           var cp = CHECKPOINTS[c];
+           var dx = tx - cp.x;
+           var dy = ty - cp.y;
+           var dist = Math.hypot(dx, dy);
+           if (dist < 200) { // Keep 200px from checkpoints
+             ok = false;
+             break;
+           }
+         }
+       }
+       
+       if (ok) {
+         turrets.push({
+           x: tx,
+           y: ty,
+           angle: 0, // Not used for force direction, but for visual
+           range: TURRET_CONFIG.forceRadius,
+           triggerRadius: TURRET_CONFIG.triggerRadius,
+           sprayRadius: TURRET_CONFIG.sprayRadius
+         });
+       }
+     }
+     
+     if (turrets.length >= TURRET_CONFIG.count) {
+       TURRETS = turrets;
+     }
+   }
+   
    /* 1) ARENA CONSTRUCTION
       Builds outer walls, chicanes, start sensor, ordered checkpoints,
       curved barriers, optional pads. Adds all to Matter world.
@@ -128,7 +334,13 @@
        isStatic: true, restitution: 0, friction: 0, label: "WALL", angle: -Math.PI / 12
      });
    
-     // Extra curved barriers (new)
+    // Randomize layout before creating bodies (Person B requirement)
+    randomizeTrackLayout_();
+    
+    // Person B: Randomize turret placement (after checkpoints/obstacles are placed)
+    randomizeTurrets_();
+
+    // Extra curved barriers (new)
      var curvedBodies = [];
      for (var cb = 0; cb < CURVED_BARRIERS.length; cb++) {
        var c = CURVED_BARRIERS[cb];
@@ -167,12 +379,24 @@
        }));
      }
    
+     // Person B: Create turret bodies (static emitters)
+     var turretBodies = [];
+     for (var ti = 0; ti < TURRETS.length; ti++) {
+       var tur = TURRETS[ti];
+       turretBodies.push(Bodies.rectangle(tur.x, tur.y, 40, 40, {
+         isStatic: true, restitution: 0, friction: 0, label: "TURRET_" + ti, angle: tur.angle
+       }));
+     }
+   
      var addList = [
        topWall, bottomWall, leftWall, rightWall,
        chicaneA, chicaneB, startSensor
-     ].concat(curvedBodies, checkpointBodies, boostBodies, gripBodies);
+     ].concat(curvedBodies, checkpointBodies, boostBodies, gripBodies, turretBodies);
    
      World.add(world, addList);
+   
+     // Person B: Initialize turret spray state (timers, active sprays)
+     var turretState = createTurretState_(TURRETS.length);
    
      return {
        bounds: { W: W, H: H },
@@ -180,7 +404,10 @@
        startSensor: startSensor,
        checkpoints: checkpointBodies,
        boostPads: boostBodies,
-       gripPads: gripBodies
+       gripPads: gripBodies,
+       turrets: turretBodies,
+       turretData: TURRETS,
+       turretState: turretState
      };
    }
    
@@ -226,6 +453,9 @@
    
          for (var idx = 0; idx < carBodies.length; idx++) {
            var carLabel = carBodies[idx].label;
+          // Process only if this collision pair actually involves this car
+          var involvesThisCar = (a.label === carLabel || b.label === carLabel);
+          if (!involvesThisCar) continue;
    
            // Pads (optional)
            if ((a.label === carLabel && b.label === "BOOST_PAD") ||
@@ -351,6 +581,161 @@
    
    /* 4) WORLD HELPERS */
    function getWorldBounds() { return { W: WORLD_BOUNDS.W, H: WORLD_BOUNDS.H }; }
+   
+   /* ------------------------------------------------------------
+      12b) TURRET STATE & UPDATE (new)
+      Person B: Manages turret spray timing and applies forces to cars
+   ------------------------------------------------------------- */
+   function createTurretState_(turretCount) {
+     var now = performance.now();
+     return {
+       activeSprays: new Array(turretCount).fill(false),
+       sprayEndTime: new Array(turretCount).fill(0),
+       particles: [], // Array of particle arrays for each turret
+       carsInTrigger: new Array(turretCount).fill(false), // Track if any car is in trigger radius
+       glowIntensity: new Array(turretCount).fill(0) // Pulsing glow (0-1)
+     };
+   }
+   
+   // Person B: Update turret spray logic and apply forces to cars in range
+   // Turrets only activate when cars enter trigger radius, push cars away, spray randomly
+   function updateTurrets_(turretState, turretData, turretBodies, carBodies, MatterRef) {
+     var now = performance.now();
+     var Bodies = MatterRef.Bodies;
+     
+     // Update each turret
+     for (var i = 0; i < turretData.length; i++) {
+       var tur = turretData[i];
+       var turBody = turretBodies[i];
+       if (!tur || !turBody) continue;
+       
+       // Get turret position from body if available, otherwise use data
+       var turX = (turBody && turBody.position) ? turBody.position.x : tur.x;
+       var turY = (turBody && turBody.position) ? turBody.position.y : tur.y;
+       var triggerRadius = tur.triggerRadius || TURRET_CONFIG.triggerRadius;
+       var forceRadius = tur.range || TURRET_CONFIG.forceRadius;
+       var hasCarInTrigger = false;
+       
+       // Check if any car is in trigger radius (activates turret)
+       // Works for both single-player and two-player modes - checks all cars equally
+       for (var c = 0; c < carBodies.length; c++) {
+         var car = carBodies[c];
+         if (!car || !car.position) continue;
+         
+         var carX = car.position.x;
+         var carY = car.position.y;
+         var dx = carX - turX;
+         var dy = carY - turY;
+         var dist = Math.hypot(dx, dy);
+         
+         // Any car entering trigger radius activates the turret
+         if (dist <= triggerRadius && dist > 0) {
+           hasCarInTrigger = true;
+           break; // Found at least one car, no need to check others
+         }
+       }
+       
+       // Update trigger state: activate if car enters, deactivate if no cars in range
+       var wasInTrigger = turretState.carsInTrigger[i];
+       turretState.carsInTrigger[i] = hasCarInTrigger;
+       
+       // Start spray when car first enters trigger radius (only once per entry)
+       if (hasCarInTrigger && !wasInTrigger && !turretState.activeSprays[i]) {
+         turretState.activeSprays[i] = true;
+         turretState.sprayEndTime[i] = now + 1000; // Spray lasts 1 second
+         turretState.glowIntensity[i] = 1.0; // Start at full glow
+         
+         // Initialize random spray particles (spread in all directions)
+         turretState.particles[i] = [];
+         for (var p = 0; p < 25; p++) { // More particles for wider spray
+           var randomAngle = Math.random() * Math.PI * 2; // Random direction
+           var dist = Math.random() * tur.sprayRadius;
+           turretState.particles[i].push({
+             x: tur.x,
+             y: tur.y,
+             life: 40,
+             maxLife: 40,
+             tx: tur.x + Math.cos(randomAngle) * dist,
+             ty: tur.y + Math.sin(randomAngle) * dist,
+             speed: 2 + Math.random() * 3 // Variable particle speed
+           });
+         }
+       }
+       
+       // If spraying, apply forces to cars in force range
+       // Works for both single-player and two-player modes - affects all cars equally
+       if (turretState.activeSprays[i] && now < turretState.sprayEndTime[i]) {
+         // Apply forces to ALL cars in force range (both players affected equally)
+         for (var c = 0; c < carBodies.length; c++) {
+           var car = carBodies[c];
+           if (!car || !car.position) continue;
+           
+           var carX = car.position.x;
+           var carY = car.position.y;
+           
+           // Vector from turret to car
+           var dx = carX - turX;
+           var dy = carY - turY;
+           var dist = Math.hypot(dx, dy);
+           
+           // Check if car is in force application range (both players checked equally)
+           if (dist <= forceRadius && dist > 0) {
+             // Normalize the vector from turret to car
+             var len = dist;
+             var dirX = dx / len;
+             var dirY = dy / len;
+             
+             // Reverse direction to push car AWAY from turret
+             var pushDirX = -dirX;
+             var pushDirY = -dirY;
+             
+             // Scale force by distance (closer = stronger push, but still noticeable at long range)
+             // Expanded radius: maintain consistent feel across longer distances
+             var forceScale = Math.max(0.35, 1.0 - (dist / forceRadius)); // 35% minimum at max range for longer distances
+             var pushForce = 0.08 * forceScale; // Base force increased for more noticeable push impact
+             
+             // Apply force pushing car away from turret
+             Matter.Body.applyForce(car, car.position, {
+               x: pushDirX * pushForce,
+               y: pushDirY * pushForce
+             });
+           }
+         }
+         
+         // Update particle positions and lifetimes for visual
+         if (turretState.particles[i]) {
+           for (var pIdx = turretState.particles[i].length - 1; pIdx >= 0; pIdx--) {
+             var part = turretState.particles[i][pIdx];
+             if (!part) continue;
+             
+             part.life--;
+             if (part.life <= 0) {
+               turretState.particles[i].splice(pIdx, 1);
+             }
+           }
+         }
+         
+         // Update pulsing glow (fade out during spray)
+         var sprayProgress = (now - (turretState.sprayEndTime[i] - 1000)) / 1000;
+         turretState.glowIntensity[i] = Math.max(0, 1.0 - sprayProgress * 0.5); // Fade from 1.0 to 0.5
+       } else if (turretState.activeSprays[i] && now >= turretState.sprayEndTime[i]) {
+         // Spray ended
+         turretState.activeSprays[i] = false;
+         turretState.particles[i] = [];
+         turretState.glowIntensity[i] = 0;
+       } else if (!hasCarInTrigger) {
+         // No cars in trigger, fade glow
+         turretState.glowIntensity[i] = Math.max(0, turretState.glowIntensity[i] - 0.05);
+       }
+     }
+     
+     return turretState;
+   }
+   
+   // Person B: Public wrapper to update turrets (called from sketch.js)
+   function updateTurrets(turretState, turretData, turretBodies, carBodies, MatterRef) {
+     return updateTurrets_(turretState, turretData, turretBodies, carBodies, MatterRef);
+   }
    
    /* debug drawing helpers
       Draws the real start line and all checkpoints created by buildTrack */
