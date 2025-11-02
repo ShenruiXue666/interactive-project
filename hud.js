@@ -29,6 +29,10 @@ class HUD {
         // Speed display (top left)
         this.drawSpeed(carState.speed, this.padding, this.padding, this.player1Color);
 
+        // Drift time display (below speed)
+        this.drawDriftTime(carState.totalDriftTime || 0, carState.drifting, 
+                          this.padding, this.padding + 90, this.player1Color, 'left');
+
         // Lap time display (top center)
         this.drawLapTime(lapInfo, width / 2, this.padding);
 
@@ -55,8 +59,13 @@ class HUD {
 
         // Player 1 (left side)
         this.drawSpeed(car1State.speed, this.padding, this.padding, this.player1Color);
+        this.drawDriftTime(car1State.totalDriftTime || 0, car1State.drifting,
+                          this.padding, this.padding + 90, this.player1Color, 'left');
+        
         // Player 2 (right side)
         this.drawSpeed(car2State.speed, width - this.padding, this.padding, this.player2Color, 'right');
+        this.drawDriftTime(car2State.totalDriftTime || 0, car2State.drifting,
+                          width - this.padding, this.padding + 90, this.player2Color, 'right');
 
         // Timer display (top center) for two-player mode
         if (timeRemaining !== null) {
@@ -107,6 +116,45 @@ class HUD {
         fill(150);
         noStroke();
         text('km/h', x, y + 55);
+
+        pop();
+    }
+
+    /**
+     * Draw drift time display
+     * @param {number} driftTime - Total drift time in milliseconds
+     * @param {boolean} isDrifting - Whether currently drifting
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @param {string} color - Display color
+     * @param {string} align - Text alignment ('left' or 'right')
+     */
+    drawDriftTime(driftTime, isDrifting, x, y, color = '#00ffff', align = 'left') {
+        push();
+
+        textAlign(align === 'right' ? RIGHT : LEFT, TOP);
+        textSize(this.fontSize);
+
+        // Label
+        fill(150);
+        noStroke();
+        text('DRIFT TIME', x, y);
+
+        // Drift time value with glow (larger when actively drifting)
+        textSize(isDrifting ? this.fontSize * 2.2 : this.fontSize * 2);
+        fill(color);
+        this.applyTextGlow(color, isDrifting ? 2 : 1);
+
+        let seconds = (driftTime / 1000).toFixed(2);
+        text(seconds + 's', x, y + 25);
+
+        // Active drift indicator
+        if (isDrifting) {
+            textSize(this.fontSize * 0.9);
+            fill(255, 255, 0);
+            this.applyTextGlow('#ffff00', 2);
+            text('DRIFTING!', x, y + 55);
+        }
 
         pop();
     }

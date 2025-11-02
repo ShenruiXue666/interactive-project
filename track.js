@@ -15,7 +15,8 @@
  *   8) Curved barriers (obstacles)
  *   9) Penalty timer API
  *   10) Optional surface pads (boost/grip)
- *   11) Turret system (water pressure obstacles)
+ *   11) Optional JSON arena loader
+ *   12) Turret system (water pressure obstacles)
  * 
  * Integration Notes:
  *   - Uses p5.js + Matter.js for physics
@@ -41,8 +42,8 @@ var WORLD_BOUNDS = { W: 3000, H: 2000 };
  * Person C can read positions via getStartPositions() or reset cars with resetToStart().
  */
 var START_POSITIONS = [
-    { x: 600, y: 500, angle: 0 },   // Player 1 spawn
-    { x: 640, y: 500, angle: 0 }    // Player 2 spawn
+    { x: 400, y: 500, angle: 0 },   // Player 1 spawn (左侧)
+    { x: 1600, y: 500, angle: 0 }    // Player 2 spawn (右侧)
 ];
 
 // Get a copy of start positions array
@@ -908,4 +909,83 @@ function drawStartAndCheckpointDebug() {
     }
     
     pop();
+}
+
+/* ============================================
+ * 11) OPTIONAL JSON ARENA LOADER
+ * ============================================
+ * Create walls, checkpoints, and pads from a plain JavaScript object.
+ * Can be called instead of or in addition to buildTrack if needed.
+ * 
+ * Example data structure:
+ * {
+ *   "walls": [{"x":1200, "y":850, "w":160, "h":24, "a":0.1}],
+ *   "checkpoints": [{"x":2100, "y":1500, "r":35}],
+ *   "pads": {
+ *     "boost": [{"x":1000, "y":700, "w":140, "h":30}],
+ *     "grip": [{"x":1800, "y":1300, "w":200, "h":40}]
+ *   }
+ * }
+ */
+function loadArenaFromJSON(data, MatterRef, world) {
+    var Bodies = MatterRef.Bodies;
+    var World  = MatterRef.World;
+    var addList = [];
+    
+    // Load walls
+    if (data.walls && data.walls.length) {
+        for (var i = 0; i < data.walls.length; i++) {
+            var w = data.walls[i];
+            addList.push(Bodies.rectangle(w.x, w.y, w.w, w.h, {
+                isStatic: true,
+                restitution: 0,
+                friction: 0,
+                label: "WALL",
+                angle: w.a || 0
+            }));
+        }
+    }
+    
+    // Load checkpoints (also update in-memory list for debug drawing)
+    if (data.checkpoints && data.checkpoints.length) {
+        CHECKPOINTS = [];
+        for (var c = 0; c < data.checkpoints.length; c++) {
+            var cp = data.checkpoints[c];
+            CHECKPOINTS.push({ x: cp.x, y: cp.y, r: cp.r });
+            addList.push(Bodies.circle(cp.x, cp.y, cp.r, {
+                isStatic: true,
+                isSensor: true,
+                label: "CHECK_" + c
+            }));
+        }
+    }
+    
+    // Load boost pads
+    if (data.pads) {
+        if (data.pads.boost && data.pads.boost.length) {
+            for (var b = 0; b < data.pads.boost.length; b++) {
+                var bp = data.pads.boost[b];
+                addList.push(Bodies.rectangle(bp.x, bp.y, bp.w, bp.h, {
+                    isStatic: true,
+                    isSensor: true,
+                    label: "BOOST_PAD"
+                }));
+            }
+        }
+        
+        // Load grip pads
+        if (data.pads.grip && data.pads.grip.length) {
+            for (var g = 0; g < data.pads.grip.length; g++) {
+                var gp = data.pads.grip[g];
+                addList.push(Bodies.rectangle(gp.x, gp.y, gp.w, gp.h, {
+                    isStatic: true,
+                    isSensor: true,
+                    label: "GRIP_PAD"
+                }));
+            }
+        }
+    }
+    
+    // Add all loaded bodies to world
+    if (addList.length) World.add(world, addList);
 }

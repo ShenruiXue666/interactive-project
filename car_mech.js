@@ -30,7 +30,10 @@ class Car {
         this.state = {
             speed: 0,
             drifting: false,
-            releaseSpeed: 0
+            releaseSpeed: 0,
+            totalDriftTime: 0,        // Total drift time in milliseconds
+            currentDriftStart: 0,      // When current drift started
+            wasDrifting: false         // Previous frame drift state
         };
 
         // Controls (WASD for player 1, Arrow keys for player 2)
@@ -56,6 +59,9 @@ class Car {
 
         // Check if drifting (based on angle between velocity and body angle)
         this.checkDrift();
+
+        // Update drift time tracking
+        this.updateDriftTime();
 
         // Update trail if drifting
         if (this.state.drifting) {
@@ -177,6 +183,28 @@ class Car {
         //console.log("Angle Diff:", angleDiff.toFixed(2), "Speed:", this.state.speed.toFixed(2));
 
         this.state.drifting = angleDiff > 0.5 && angleDiff < 1 && this.state.speed > 5;
+    }
+
+    updateDriftTime() {
+        // Track drift time accumulation using deltaTime for accuracy
+        if (this.state.drifting) {
+            // deltaTime from p5.js gives actual milliseconds since last frame
+            // This makes timing accurate regardless of frame rate
+            if (typeof deltaTime !== 'undefined') {
+                this.state.totalDriftTime += deltaTime;
+            } else {
+                // Fallback: assume 60 FPS
+                this.state.totalDriftTime += (1000 / 60);
+            }
+        }
+        
+        // Update previous state
+        this.state.wasDrifting = this.state.drifting;
+    }
+
+    getCurrentDriftTime() {
+        // Return total drift time in milliseconds
+        return this.state.totalDriftTime;
     }
 
     updateTrail() {

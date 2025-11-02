@@ -363,15 +363,24 @@ function updateGameLogic() {
  */
 function drawHUD() {
     if (gameMode === 'single' && cars.length > 0) {
-        hud.drawSinglePlayer(cars[0].state || {}, lapInfo);
+        // Get current drift time including active drift
+        let car1State = cars[0].state || {};
+        car1State.totalDriftTime = cars[0].getCurrentDriftTime ? cars[0].getCurrentDriftTime() : (car1State.totalDriftTime || 0);
+        hud.drawSinglePlayer(car1State, lapInfo);
     } else if (gameMode === 'two-player' && cars.length >= 2) {
         // Get lap info for both players from race rules
         let player1LapInfo = raceRules ? raceRules.getLapInfo(0) : lapInfo;
         let player2LapInfo = raceRules ? raceRules.getLapInfo(1) : lapInfo;
 
+        // Get current drift times including active drift
+        let car1State = cars[0].state || {};
+        let car2State = cars[1].state || {};
+        car1State.totalDriftTime = cars[0].getCurrentDriftTime ? cars[0].getCurrentDriftTime() : (car1State.totalDriftTime || 0);
+        car2State.totalDriftTime = cars[1].getCurrentDriftTime ? cars[1].getCurrentDriftTime() : (car2State.totalDriftTime || 0);
+
         hud.drawTwoPlayer(
-            cars[0].state || {},
-            cars[1].state || {},
+            car1State,
+            car2State,
             twoPlayerTimer // Pass the timer value
         );
     }
