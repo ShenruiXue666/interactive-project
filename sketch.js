@@ -160,8 +160,8 @@ function setup() {
     // Initialize track system (Person B's buildTrack function)
     initializeTrack();
 
-    console.log('Neon Drift Racing');
-    console.log('Camera and HUD systems initialized');
+    // console.log('Neon Drift Racing');
+    // console.log('Camera and HUD systems initialized');
 }
 
 /**
@@ -177,7 +177,7 @@ function draw() {
     // Safety check: ensure game state is valid
     if (!gameState || gameState === 'undefined') {
         gameState = 'playing';
-        console.log("⚠️ Invalid game state detected, resetting to playing");
+        // console.log("⚠️ Invalid game state detected, resetting to playing");
     }
 
     if (gameState === 'playing') {
@@ -227,7 +227,7 @@ function draw() {
     } else if (gameState === 'gameOver') {
         // Person B - Bilal: Game Over screen for two-player mode
         // Physics stopped - freeze on last frame, show final checkpoint counts
-        
+
         // Draw frozen game state (last frame before timer expired)
         if (camera) {
             camera.apply();
@@ -281,7 +281,7 @@ function updateGameLogic() {
         twoPlayerTimer -= 1;
 
         if (twoPlayerTimer <= 0) {
-            console.log('⏰ Two-player timer expired! Showing Game Over screen...');
+            // console.log('⏰ Two-player timer expired! Showing Game Over screen...');
             showGameOver();
             return;
         }
@@ -291,7 +291,7 @@ function updateGameLogic() {
     for (let i = 0; i < cars.length; i++) {
         let car = cars[i];
         car.update();
-        
+
         // Person B - Bilal: Track last meaningful movement direction for unstuck nudge
         if (car && car.body && car.body.velocity) {
             let vx = car.body.velocity.x || 0;
@@ -313,7 +313,7 @@ function updateGameLogic() {
                 let lastPoint = car.trail[car.trail.length - 1];
                 let secondLastPoint = car.trail[car.trail.length - 2];
                 let carColor = i === 0 ? NEON_COLORS.cyan : NEON_COLORS.magenta;
-                
+
                 // Create persistent skid mark
                 skidMarks.push({
                     x1: lastPoint.x,
@@ -507,12 +507,12 @@ function drawTrack() {
             let turret = track.turrets[i];
             let turData = track.turretData[i];
             let turState = track.turretState;
-            
+
             if (!turret || !turData) continue;
-            
+
             let pos = turret.position;
             let glow = turState.glowIntensity && turState.glowIntensity[i] ? turState.glowIntensity[i] : 0;
-            
+
             // Draw pulsing glow around turret when active
             if (glow > 0) {
                 push();
@@ -525,7 +525,7 @@ function drawTrack() {
                 drawingContext.shadowBlur = 0;
                 pop();
             }
-            
+
             // Draw turret base (small rectangle)
             push();
             translate(pos.x, pos.y);
@@ -536,25 +536,25 @@ function drawTrack() {
             drawingContext.shadowColor = glow > 0 ? '#00ffff' : '#00aaff';
             rectMode(CENTER);
             rect(0, 0, 40, 40);
-            
+
             // Draw center indicator
             fill('#00ffff');
             noStroke();
             circle(0, 0, 8);
             drawingContext.shadowBlur = 0;
             pop();
-            
+
             // Draw active spray particles if spraying (random directions, wide spread)
             if (turState.activeSprays && turState.activeSprays[i] && turState.particles && turState.particles[i]) {
                 for (let p of turState.particles[i]) {
                     if (!p || p.life <= 0) continue;
-                    
+
                     // Calculate current particle position (animated toward target)
                     let progress = 1 - (p.life / p.maxLife);
                     let currentX = p.x + (p.tx - p.x) * progress;
                     let currentY = p.y + (p.ty - p.y) * progress;
                     let alpha = (p.life / p.maxLife) * 200; // Fade out
-                    
+
                     // Draw larger, more visible particles with trail
                     push();
                     fill(100, 200, 255, alpha);
@@ -564,7 +564,7 @@ function drawTrack() {
                     drawingContext.shadowColor = 'rgba(100, 200, 255, ' + (alpha / 255) + ')';
                     circle(currentX, currentY, 5 + progress * 2); // Slightly larger particles
                     drawingContext.shadowBlur = 0;
-                    
+
                     // Draw trail line back to turret for longer spray effect
                     if (progress > 0.2) {
                         stroke(100, 200, 255, alpha * 0.4);
@@ -573,7 +573,7 @@ function drawTrack() {
                     }
                     pop();
                 }
-                
+
                 // Draw wider spray area indicator (full circle spray, not directional)
                 if (turState.activeSprays[i]) {
                     push();
@@ -731,7 +731,7 @@ function drawMenuBackground() {
  */
 function initializeTrack() {
     track = buildTrack(Matter, world);
-    console.log('Track initialized with bounds:', track.bounds);
+    // console.log('Track initialized with bounds:', track.bounds);
 }
 
 /**
@@ -814,7 +814,7 @@ function initializeGame() {
     // Reset two-player timer
     twoPlayerTimer = twoPlayerMaxTime;
 
-    console.log('Game initialized with', cars.length, 'car(s)');
+    // console.log('Game initialized with', cars.length, 'car(s)');
 }
 
 /**
@@ -878,7 +878,7 @@ function startGame() {
     // Initialize game
     initializeGame();
 
-    console.log('Game started in ' + gameMode + ' mode');
+    // console.log('Game started in ' + gameMode + ' mode');
 }
 
 /**
@@ -906,7 +906,7 @@ function resumeGame() {
  * Resets all game state, timers, checkpoints, and reinitializes game objects
  */
 function restartGame() {
-    console.log("🔄 RESTARTING GAME...");
+    // console.log("🔄 RESTARTING GAME...");
 
     gameState = 'playing';
 
@@ -941,7 +941,7 @@ function restartGame() {
         camera.y = 0;
     }
 
-    console.log("✅ Game restarted successfully");
+    // console.log("✅ Game restarted successfully");
 }
 
 /**
@@ -962,19 +962,19 @@ function returnToMenu() {
  */
 function showGameOver() {
     gameState = 'gameOver';
-    
+
     // Get final checkpoint counts from Person B's checkpoint counter system
     let player1Score = checkpointCounter[0] || 0;
     let player2Score = checkpointCounter[1] || 0;
-    
+
     // Update HTML overlay with final scores
     document.getElementById('player1-score').textContent = player1Score;
     document.getElementById('player2-score').textContent = player2Score;
-    
+
     // Display the Game Over overlay
     document.getElementById('gameover-menu').style.display = 'flex';
-    
-    console.log('🎮 Game Over! Player 1:', player1Score, 'checkpoints | Player 2:', player2Score, 'checkpoints');
+
+    // console.log('🎮 Game Over! Player 1:', player1Score, 'checkpoints | Player 2:', player2Score, 'checkpoints');
 }
 
 /**
@@ -1024,25 +1024,25 @@ function keyPressed() {
 
     // Test checkpoint activation with T key
     if (key === 't' || key === 'T') {
-        console.log("🧪 TESTING CHECKPOINT ACTIVATION!");
+        // console.log("🧪 TESTING CHECKPOINT ACTIVATION!");
         onCheckpoint(0, 0); // Force activate checkpoint 0 for player 0
     }
 
     // Toggle checkpoint alerts with L key (L for "alerts")
     if (key === 'l' || key === 'L') {
         showCheckpointAlerts = !showCheckpointAlerts;
-        console.log("🔔 Checkpoint alerts:", showCheckpointAlerts ? "ENABLED" : "DISABLED");
+        // console.log("🔔 Checkpoint alerts:", showCheckpointAlerts ? "ENABLED" : "DISABLED");
     }
 
     // Toggle particles with E key (from user version)
     if (key === 'e' || key === 'E') {
         showParticles = !showParticles;
-        console.log("✨ Particles:", showParticles ? "ENABLED" : "DISABLED");
+        // console.log("✨ Particles:", showParticles ? "ENABLED" : "DISABLED");
     }
 
     // Return to menu with M key
     if (key === 'm' || key === 'M') {
-        console.log("🏁 Returning to menu");
+        // console.log("🏁 Returning to menu");
         // Person B - Bilal: Allow returning to menu from Game Over screen
         if (gameState === 'gameOver' || gameState === 'playing' || gameState === 'paused') {
             returnToMenu();
@@ -1051,16 +1051,16 @@ function keyPressed() {
 
     // Force game state to playing with G key (if stuck)
     if (key === 'g' || key === 'G') {
-        console.log("🔄 FORCING GAME STATE TO PLAYING");
+        // console.log("🔄 FORCING GAME STATE TO PLAYING");
         gameState = 'playing';
-        console.log("✅ Game state forced to playing");
+        // console.log("✅ Game state forced to playing");
     }
 
     // Person B - Bilal: Unstuck nudge with U key
     // Gives a small velocity kick and force to help cars escape when stuck against walls
     if (key === 'u' || key === 'U') {
         const kickSpeed = 6;     // Small initial speed burst
-        const forceMag  = 0.06;  // Follow-up force for smooth separation
+        const forceMag = 0.06;  // Follow-up force for smooth separation
         for (let i = 0; i < cars.length; i++) {
             let car = cars[i];
             if (!car || !car.body) continue;
@@ -1103,7 +1103,7 @@ function keyPressed() {
 
             if (camera && camera.shake) camera.shake(2, 3);
         }
-        console.log("🛠️ Unstuck nudge applied (kick+force)");
+        // console.log("🛠️ Unstuck nudge applied (kick+force)");
     }
 
     // Person B - Bilal: Handbrake/drift boost with Space key
@@ -1149,7 +1149,7 @@ function keyPressed() {
 function respawnPlayer(playerIndex) {
     if (!cars[playerIndex] || !track) return;
 
-    console.log(`🔄 Respawning player ${playerIndex + 1}`);
+    // console.log(`🔄 Respawning player ${playerIndex + 1}`);
 
     // Get start positions from track system
     let startPositions = getStartPositions();
@@ -1167,7 +1167,7 @@ function respawnPlayer(playerIndex) {
         Matter.Body.setAngularVelocity(car.body, 0);
         Matter.Body.setAngle(car.body, 0);
 
-        console.log(`✅ Player ${playerIndex + 1} respawned at start position (${startPositions[playerIndex].x}, ${startPositions[playerIndex].y})`);
+        // console.log(`✅ Player ${playerIndex + 1} respawned at start position (${startPositions[playerIndex].x}, ${startPositions[playerIndex].y})`);
     } else {
         console.warn(`⚠️ No start position found for player ${playerIndex + 1}`);
     }
@@ -1223,7 +1223,7 @@ function onDriftEnd(carIndex, score, combo) {
  * @param {number} lapTime - Lap time in seconds
  */
 function onLap(carIndex, lapTime) {
-    console.log('Lap completed!', lapTime);
+    // console.log('Lap completed!', lapTime);
 
     lapInfo.lastTime = lapTime;
     if (!lapInfo.bestTime || lapTime < lapInfo.bestTime) {
@@ -1256,10 +1256,10 @@ function onCheckpoint(carIndex, checkpointIndex) {
         let wasRecentlyActivated = checkpointCooldowns[cooldownKey] && checkpointCooldowns[cooldownKey] > millis() - 500;
 
         if (wasRecentlyActivated) {
-            console.log("⏰ Checkpoint", checkpointIndex, "already activated recently for car", carIndex);
+            // console.log("⏰ Checkpoint", checkpointIndex, "already activated recently for car", carIndex);
         }
 
-        console.log('🎯 CHECKPOINT ACTIVATED! Car', carIndex, 'hit checkpoint', checkpointIndex);
+        // console.log('🎯 CHECKPOINT ACTIVATED! Car', carIndex, 'hit checkpoint', checkpointIndex);
 
         // Set cooldown to prevent duplicate activations
         checkpointCooldowns[cooldownKey] = millis();
@@ -1285,13 +1285,13 @@ function onCheckpoint(carIndex, checkpointIndex) {
         // Person B - Bilal: Increment single-player checkpoint counter and update high score
         if (gameMode === 'single' && carIndex === 0) {
             singlePlayerCheckpointCount++;
-            
+
             // Update best score if current count exceeds it (for saving to localStorage)
             if (singlePlayerCheckpointCount > bestCheckpointScore) {
                 bestCheckpointScore = singlePlayerCheckpointCount;
                 saveBestCheckpointScore(bestCheckpointScore);
             }
-            
+
             // Update displayed "Last Player's Score" when current player beats previous score
             // This ensures next person sees the updated high score
             if (singlePlayerCheckpointCount > lastSessionDisplayedScore) {
@@ -1316,7 +1316,7 @@ function onCheckpoint(carIndex, checkpointIndex) {
             camera.shake(3, 5);
         }
 
-        console.log('✅ Checkpoint activation completed successfully');
+        // console.log('✅ Checkpoint activation completed successfully');
 
         // Show non-blocking notification (from friend version - better UX)
         showCheckpointNotification(carIndex, checkpointIndex);
@@ -1359,7 +1359,7 @@ function onWallHit(carIndex) {
  * @param {string} padType - Type of pad: 'boost' or 'grip'
  */
 function onPad(carIndex, padType) {
-    console.log('Car', carIndex, 'hit', padType, 'pad');
+    // console.log('Car', carIndex, 'hit', padType, 'pad');
 
     if (padType === 'boost') {
         // Apply boost effect
@@ -1497,16 +1497,16 @@ function checkCheckpointProximity() {
 
                     // Check cooldown to prevent spam (reduced to 1 second)
                     if (!checkpointCooldowns[cooldownKey] || checkpointCooldowns[cooldownKey] < millis() - 1000) {
-                        console.log("🎯 PROXIMITY DETECTED! Car", carIndex, "inside checkpoint", cpIndex);
+                        // console.log("🎯 PROXIMITY DETECTED! Car", carIndex, "inside checkpoint", cpIndex);
 
                         // Set cooldown
                         checkpointCooldowns[cooldownKey] = millis();
 
                         // Always trigger checkpoint activation (simplified)
-                        console.log("✅ TRIGGERING CHECKPOINT ACTIVATION!");
+                        // console.log("✅ TRIGGERING CHECKPOINT ACTIVATION!");
                         onCheckpoint(carIndex, cpIndex);
                     } else {
-                        console.log("⏰ Checkpoint", cpIndex, "on cooldown for car", carIndex);
+                        // console.log("⏰ Checkpoint", cpIndex, "on cooldown for car", carIndex);
                     }
                 }
             }
@@ -1523,7 +1523,7 @@ function checkCheckpointProximity() {
  */
 function showCheckpointAlert(carIndex, checkpointIndex) {
     try {
-        console.log(`🎯 CHECKPOINT ${checkpointIndex + 1} ACTIVATED! Player ${carIndex + 1} reached checkpoint ${checkpointIndex + 1}!`);
+        // console.log(`🎯 CHECKPOINT ${checkpointIndex + 1} ACTIVATED! Player ${carIndex + 1} reached checkpoint ${checkpointIndex + 1}!`);
 
         // Show alert popup but make it non-blocking
         let message = `🎯 CHECKPOINT ${checkpointIndex + 1} ACTIVATED!\n\nPlayer ${carIndex + 1} reached checkpoint ${checkpointIndex + 1}!\n\nWhat would you like to do?`;
@@ -1535,13 +1535,13 @@ function showCheckpointAlert(carIndex, checkpointIndex) {
 
                 if (!choice) {
                     // User chose to return to menu
-                    console.log("🏁 Player chose to return to menu");
+                    // console.log("🏁 Player chose to return to menu");
                     returnToMenu();
                 } else {
                     // User chose to continue
-                    console.log("🏁 Player chose to continue racing");
+                    // console.log("🏁 Player chose to continue racing");
                     gameState = 'playing';
-                    console.log("✅ Game state set to playing");
+                    // console.log("✅ Game state set to playing");
                 }
             } catch (error) {
                 console.error('❌ Error in checkpoint alert dialog:', error);
@@ -1579,7 +1579,7 @@ function showCheckpointNotification(carIndex, checkpointIndex) {
     // Add to effects array for drawing
     checkpointEffects.push(notification);
 
-    console.log("✅ Checkpoint notification shown (non-blocking)");
+    // console.log("✅ Checkpoint notification shown (non-blocking)");
 }
 
 /**
@@ -1705,7 +1705,7 @@ function loadBestCheckpointScore() {
             let loadedScore = parseInt(stored, 10) || 0;
             bestCheckpointScore = loadedScore;
             lastSessionDisplayedScore = loadedScore;  // Store for display (never changes during current session)
-            console.log('📊 Loaded best checkpoint score from previous session:', loadedScore);
+            // console.log('📊 Loaded best checkpoint score from previous session:', loadedScore);
         }
     } catch (error) {
         console.warn('⚠️ Could not load best checkpoint score from localStorage:', error);
@@ -1722,7 +1722,7 @@ function loadBestCheckpointScore() {
 function saveBestCheckpointScore(score) {
     try {
         localStorage.setItem('bestCheckpointScore', score.toString());
-        console.log('💾 Saved best checkpoint score:', score);
+        // console.log('💾 Saved best checkpoint score:', score);
     } catch (error) {
         console.warn('⚠️ Could not save best checkpoint score to localStorage:', error);
     }
@@ -1734,22 +1734,22 @@ function saveBestCheckpointScore(score) {
  */
 function resumeGameFromCheckpoint() {
     try {
-        console.log("🔄 FORCING GAME RESUMPTION...");
+        // console.log("🔄 FORCING GAME RESUMPTION...");
 
         // Ensure game state is playing
         gameState = 'playing';
 
         // Ensure physics engine is running
         if (engine && engine.world) {
-            console.log("✅ Physics engine confirmed running");
+            // console.log("✅ Physics engine confirmed running");
         }
 
         // Force a frame update to get things moving
-        console.log("✅ Game resumption complete - should be running smoothly now");
+        // console.log("✅ Game resumption complete - should be running smoothly now");
 
         // Additional safety: ensure draw loop continues
         if (typeof draw === 'function') {
-            console.log("✅ Draw function available");
+            // console.log("✅ Draw function available");
         }
 
     } catch (error) {
