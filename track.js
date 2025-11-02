@@ -41,8 +41,8 @@ var WORLD_BOUNDS = { W: 3000, H: 2000 };
  * Person C can read positions via getStartPositions() or reset cars with resetToStart().
  */
 var START_POSITIONS = [
-    { x: 600, y: 500, angle: 0 },   // Player 1 spawn
-    { x: 640, y: 500, angle: 0 }    // Player 2 spawn
+    { x: 500, y: 450, angle: 0 },   // Player 1 spawn
+    { x: 800, y: 550, angle: 0 }    // Player 2 spawn
 ];
 
 // Get a copy of start positions array
