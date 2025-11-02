@@ -7,7 +7,8 @@
     <title>Neon Drift Racing</title>
 
     <!-- p5.js library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <script src="p5/p5.min.js"></script>
+    <script src="p5/p5.sound.min.js"></script>
 
     <!-- Matter.js library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
@@ -44,31 +45,34 @@
             <div class="instructions-text">
                 <h3>Single Player Controls</h3>
                 <ul>
-                    <li><strong>W / ↑</strong> - Accelerate</li>
-                    <li><strong>S / ↓</strong> - Brake / Reverse</li>
-                    <li><strong>A / ←</strong> - Turn Left</li>
-                    <li><strong>D / →</strong> - Turn Right</li>
-                    <li><strong>Space</strong> - Handbrake (Force Drift)</li>
+                    <li><strong>W</strong> - Accelerate</li>
+                    <li><strong>S</strong> - Brake</li>
+                    <li><strong>A</strong> - Turn Left</li>
+                    <li><strong>D</strong> - Turn Right</li>
                 </ul>
 
                 <h3>Two Player Controls</h3>
-                <p><strong>Player 1 (Cyan):</strong> W/A/S/D + Shift</p>
-                <p><strong>Player 2 (Magenta):</strong> Arrow Keys + Space</p>
+                <p><strong>Player 1 (Cyan):</strong> W/S/A/D</p>
+                <p><strong>Player 2 (Magenta):</strong> ↑/↓/←/→</p>
 
                 <h3>Gameplay</h3>
+                <p><strong>Single Player</strong>
                 <ul>
-                    <li>Pass through all checkpoints to complete a lap</li>
-                    <li>Drift at high speed to earn drift points</li>
-                    <li>Chain drifts together for combo multipliers</li>
-                    <li>Wall hits reset your drift combo</li>
+                    <li>Pass through all checkpoints to complete a lap.</li>
                     <li>Try to beat your best lap time!</li>
+                </ul>
+                <p><strong>Two Players</strong>
+                <ul>
+                    <li>Within 30s, try to reach more checkpoints than your opponent.</li>
+                    <li>Used checkpoints will reactivate after a time period.</li>
+                    <li>Whoever gets to more checkpoints wins!</li>
                 </ul>
 
                 <h3>Other Controls</h3>
                 <ul>
-                    <li><strong>P</strong> - Pause / Resume</li>
-                    <li><strong>R</strong> - Reset Game</li>
-                    <li><strong>ESC</strong> - Return to Menu</li>
+                    <li><strong>E</strong> - Toggle Particle Effects</li>
+                    <li><strong>R / Right Control</strong> - Respawn</li>
+                    <li><strong>ESC</strong> - Pause Menu</li>
                 </ul>
             </div>
 
@@ -87,6 +91,35 @@
             </div>
         </div>
     </div>
+
+    <!-- Game Over Menu -->
+    <div id="gameover-menu" class="menu-overlay" style="display: none;">
+        <div class="menu-content">
+            <h2 class="neon-subtitle">GAME OVER</h2>
+            <div id="gameover-results" style="margin: 30px 0;">
+                <div style="font-size: 1.3em; color: #00ffff; margin: 20px 0; text-shadow: 0 0 10px #00ffff;">
+                    <div style="margin: 15px 0;">
+                        <strong style="color: #00ffff;">Player 1 (Cyan):</strong> 
+                        <span id="player1-score" style="color: #ff00ff; text-shadow: 0 0 10px #ff00ff;">0</span> checkpoints
+                    </div>
+                    <div style="margin: 15px 0;">
+                        <strong style="color: #00ffff;">Player 2 (Magenta):</strong> 
+                        <span id="player2-score" style="color: #ff00ff; text-shadow: 0 0 10px #ff00ff;">0</span> checkpoints
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top: 40px; color: #ccc; font-size: 1em; line-height: 1.8;">
+                <div>Press <strong style="color: #00ffff;">R</strong> to Restart</div>
+                <div>Press <strong style="color: #00ffff;">M</strong> for Main Menu</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="game-footer">
+        <div class="footer-left">© All Rights Reserved</div>
+        <div class="footer-right">Designed and Developed by Lya, Bilal & David</div>
+    </footer>
 
     <!-- Game Scripts -->
     <script src="camera.js"></script>

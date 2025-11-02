@@ -11,28 +11,26 @@ function wrapPi(a) {
 class Car {
     constructor(x, y, engine, world, controlKeys) {
         // Physics properties
-        this.body = Matter.Bodies.rectangle(x, y, 40, 20, {
-            density: 0.04,
-            friction: 0.03,
-            frictionAir: 0.06,
+        this.body = Matter.Bodies.rectangle(x, y, 50, 30, {
+            density: 0.03,
+            frictionAir: 0.05,
             restitution: 0.5
         });
 
         Matter.World.add(world, this.body);
 
         // Car properties
-        this.maxSpeed = 20;
+        this.maxSpeed = 40;
+        this.maxCollisionSpeed = 10;
         this.acceleration = 0.08;
-        this.turnSpeed = 0.06;
-        this.driftFactor = 0.95;
+        this.turnSpeed = 0.08;
+        this.driftFactor = 0.90;
 
         // State
         this.state = {
             speed: 0,
             drifting: false,
-            driftScore: 0,
-            driftCombo: 1,
-            throttle: 0
+            releaseSpeed: 0
         };
 
         // Controls (WASD for player 1, Arrow keys for player 2)
@@ -72,14 +70,31 @@ class Car {
         let angle = this.body.angle;
         let force = 0;
 
-        // Forward/Backward
+        this.frictionAir = 0.05;
+
+        let carAngle = wrapPi(this.body.angle);
+        let velocityAngle = wrapPi(Math.atan2(velocity.y, velocity.x));
+        let angleDiff = Math.abs(wrapPi(velocityAngle - carAngle));
+
+        let speed = this.state.speed;
+
+        // Acceleration, braking, and coasting
         if (keyIsDown(this.controls.up)) {
             force = this.acceleration;
-        } else if (keyIsDown(this.controls.down) && this.state.speed > 0) {
-            // change to change firction instead
-            force = -this.acceleration * 0.7;
-        } else {
-            //
+            this.state.releaseSpeed = this.state.speed;
+        } else if (keyIsDown(this.controls.down)) {
+            this.frictionAir = 0.8;
+            this.state.releaseSpeed = this.state.speed;
+        } else if (speed > 0) {
+            // todo
+            if (angleDiff > 0.3 || this.state.drifting) {
+                this.frictionAir = 0.8;
+            } else {
+                Matter.Body.setVelocity(this.body, {
+                    x: velocity.x * (this.state.releaseSpeed / speed),
+                    y: velocity.y * (this.state.releaseSpeed / speed)
+                });
+            }
         }
 
         // Apply force in direction car is facing
@@ -90,7 +105,7 @@ class Car {
         }
 
         // Limit max speed
-        let speed = this.state.speed;
+
         if (speed > this.maxSpeed) {
 
             Matter.Body.setVelocity(this.body, {
@@ -99,8 +114,10 @@ class Car {
             });
         }
 
-        // Steerin
-        if (speed > 0.5) {
+        // TODO: reduce speed after collision
+
+        // Steering
+        if (speed > 0.2) {
             //let turnSpeed = this.turnSpeed * (speed / this.maxSpeed); // More speed, more responsive turning
             if (keyIsDown(this.controls.left)) {
                 Matter.Body.setAngle(this.body, angle - this.turnSpeed);
@@ -157,13 +174,9 @@ class Car {
         // Shortest unsigned difference in [0, PI]
         let angleDiff = Math.abs(wrapPi(velocityAngle - carAngle));
 
-        console.log("Angle Diff:", angleDiff.toFixed(2), "Speed:", this.state.speed.toFixed(2));
+        //console.log("Angle Diff:", angleDiff.toFixed(2), "Speed:", this.state.speed.toFixed(2));
 
-        this.state.drifting = angleDiff > 0.3 && angleDiff < 1.5 && this.state.speed > 5;
-
-        if (this.state.drifting) {
-            this.state.driftScore += angleDiff * this.state.driftCombo * 0.5;
-        }
+        this.state.drifting = angleDiff > 0.5 && angleDiff < 1 && this.state.speed > 5;
     }
 
     updateTrail() {
