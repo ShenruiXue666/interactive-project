@@ -38,7 +38,7 @@ var WORLD_BOUNDS = { W: 3000, H: 2000 };
 /* ============================================
  * 5) START POSITIONS + RESET HELPER
  * ============================================
- * Person B - Bilal: Deterministic spawn positions for single or two players.
+ * Deterministic spawn positions for single or two players.
  * Person C can read positions via getStartPositions() or reset cars with resetToStart().
  */
 var START_POSITIONS = [
@@ -63,7 +63,7 @@ function resetToStart(carBody, index) {
 /* ============================================
  * 6) MULTIPLE CHECKPOINTS IN ORDER
  * ============================================
- * Person B - Bilal: Ordered checkpoint system for proper racing circuit.
+ * Ordered checkpoint system for proper racing circuit.
  * Lap counts only if checkpoints are touched in sequence.
  * buildTrack() creates a sensor for each checkpoint.
  */
@@ -80,7 +80,7 @@ var CHECKPOINTS = [
 /* ============================================
  * RANDOMIZATION SYSTEM
  * ============================================
- * Person B - Bilal: Randomized obstacle and checkpoint placement system.
+ * Randomized obstacle and checkpoint placement system.
  * Ensures proper spacing and avoids overlaps for better gameplay variety.
  */
 var RANDOMIZATION = {
@@ -98,7 +98,7 @@ var RANDOMIZATION = {
 /* ============================================
  * COLLISION HELPER FUNCTIONS
  * ============================================
- * Person B - Bilal: Geometric collision detection utilities.
+ * Geometric collision detection utilities.
  * Used for randomized placement to prevent overlaps.
  */
 
@@ -190,7 +190,7 @@ function rectsOverlap(ax, ay, aw, ah, aa, bx, by, bw, bh, ba) {
 /* ============================================
  * RANDOMIZED TRACK LAYOUT GENERATOR
  * ============================================
- * Person B - Bilal: Randomizes obstacles first, then checkpoints with spacing constraints.
+ * Randomizes obstacles first, then checkpoints with spacing constraints.
  * Ensures no overlaps between checkpoints and obstacles for better gameplay flow.
  */
 function randomizeTrackLayout_() {
@@ -271,7 +271,7 @@ function randomizeTrackLayout_() {
 /* ============================================
  * 8) CURVED BARRIERS (OBSTACLES)
  * ============================================
- * Person B - Bilal: Rotated rectangles that approximate curves for drift flow.
+ * Rotated rectangles that approximate curves for drift flow.
  * Creates challenging sections that require skillful navigation.
  */
 var CURVED_BARRIERS = [
@@ -291,7 +291,7 @@ var CURVED_BARRIERS = [
 /* ============================================
  * 10) OPTIONAL SURFACE PADS
  * ============================================
- * Person B - Bilal: Boost and grip sensor pads.
+ * Boost and grip sensor pads.
  * If used, they trigger onPad callback when cars collide.
  */
 var BOOST_PADS = [
@@ -311,7 +311,7 @@ var GRIP_PADS = [
 /* ============================================
  * 12) TURRET SYSTEM
  * ============================================
- * Person B - Bilal: Static turrets that spray water pressure to push cars away.
+ * Static turrets that spray water pressure to push cars away.
  * Adds dynamic challenge - turrets activate when cars enter trigger radius.
  * Features random spray directions for visual effect.
  */
@@ -329,7 +329,7 @@ var TURRETS = []; // Populated by randomizeTurrets_()
 /* ============================================
  * TURRET PLACEMENT RANDOMIZER
  * ============================================
- * Person B - Bilal: Randomizes turret positions with spacing constraints.
+ * Randomizes turret positions with spacing constraints.
  * Ensures turrets are evenly distributed and not too close to checkpoints.
  */
 function randomizeTurrets_() {
@@ -434,10 +434,10 @@ function buildTrack(MatterRef, world) {
         angle: -Math.PI / 12
     });
     
-    // Person B - Bilal: Randomize layout before creating physics bodies
+    // Randomize layout before creating physics bodies
     randomizeTrackLayout_();
     
-    // Person B - Bilal: Randomize turret placement after checkpoints/obstacles are placed
+    // Randomize turret placement after checkpoints/obstacles are placed
     randomizeTurrets_();
     
     // Create curved barrier bodies (obstacles)
@@ -493,7 +493,7 @@ function buildTrack(MatterRef, world) {
         }));
     }
     
-    // Person B - Bilal: Create turret bodies (static emitters)
+    // Create turret bodies (static emitters)
     var turretBodies = [];
     for (var ti = 0; ti < TURRETS.length; ti++) {
         var tur = TURRETS[ti];
@@ -514,7 +514,7 @@ function buildTrack(MatterRef, world) {
     
     World.add(world, addList);
     
-    // Person B - Bilal: Initialize turret spray state (timers, active sprays, particles)
+    // Initialize turret spray state (timers, active sprays, particles)
     var turretState = createTurretState_(TURRETS.length);
     
     // Return track data for rendering and game logic
@@ -550,10 +550,10 @@ function attachRaceRules(MatterRef, engine, carBodies, callbacks) {
     var passedCheckpoint = new Array(carBodies.length).fill(false);  // Legacy single checkpoint flag
     var nextCheckpointIndex = new Array(carBodies.length).fill(0);   // Ordered checkpoint system
     
-    // Person B - Bilal: Start-line cooldown prevents immediate re-triggering
+    // Start-line cooldown prevents immediate re-triggering
     var startCooldownMs = new Array(carBodies.length).fill(0);
     
-    // Person B - Bilal: Penalty timer tracks wall-hit penalties
+    // Penalty timer tracks wall-hit penalties
     var penaltyUntil = new Array(carBodies.length).fill(0);
     
     // Lap timing state (defined in Part 3)
@@ -625,7 +625,7 @@ function attachRaceRules(MatterRef, engine, carBodies, callbacks) {
                         var lapTimeSec = completeLap_(lapState, idx);
                         passedCheckpoint[idx] = false;
                         
-                        // Person B - Bilal: Set cooldown to prevent immediate re-triggering
+                        // Set cooldown to prevent immediate re-triggering
                         startCooldownMs[idx] = now + 1000;
                         
                         if (callbacks && typeof callbacks.onLap === "function") {
@@ -637,7 +637,7 @@ function attachRaceRules(MatterRef, engine, carBodies, callbacks) {
                 // Wall hit penalty
                 if ((a.label === carLabel && b.label === "WALL") ||
                     (b.label === carLabel && a.label === "WALL")) {
-                    // Person B - Bilal: Apply penalty timer (1 second)
+                    // Apply penalty timer (1 second)
                     penaltyUntil[idx] = now + 1000;
                     
                     if (callbacks && typeof callbacks.onWallHit === "function") {
@@ -729,7 +729,7 @@ function getWorldBounds() {
 /* ============================================
  * 12b) TURRET STATE & UPDATE SYSTEM
  * ============================================
- * Person B - Bilal: Manages turret spray timing, particle effects, and force application.
+ * Manages turret spray timing, particle effects, and force application.
  * Turrets activate when cars enter trigger radius and push cars away with water pressure.
  */
 function createTurretState_(turretCount) {
@@ -746,7 +746,7 @@ function createTurretState_(turretCount) {
 /* ============================================
  * TURRET UPDATE LOGIC
  * ============================================
- * Person B - Bilal: Updates turret spray logic and applies forces to cars in range.
+ * Updates turret spray logic and applies forces to cars in range.
  * Works identically for single-player and two-player modes - all cars are affected equally.
  * Turrets activate when cars enter trigger radius, push cars away, and spray randomly.
  */
@@ -882,7 +882,7 @@ function updateTurrets_(turretState, turretData, turretBodies, carBodies, Matter
     return turretState;
 }
 
-// Person B - Bilal: Public wrapper to update turrets (called from sketch.js)
+// Public wrapper to update turrets (called from sketch.js)
 function updateTurrets(turretState, turretData, turretBodies, carBodies, MatterRef) {
     return updateTurrets_(turretState, turretData, turretBodies, carBodies, MatterRef);
 }
