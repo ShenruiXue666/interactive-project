@@ -87,7 +87,7 @@ let checkpointEffects = []; // Visual effects for activated checkpoints
 let checkpointCooldowns = {}; // Use an object map for faster lookups
 let alertCooldowns = {}; // Use an object map
 
-// Person B - Bilal: Time-based checkpoint activation (auto-resets after 2.5s)
+// Person B - Bilal: Time-based checkpoint activation (auto-resets after 4s)
 let checkpointActiveUntil = []; // millis until which each checkpoint stays green
 
 // Person B - Bilal: Per-player checkpoint counters for two-player mode
@@ -1008,13 +1008,19 @@ function onLap(carIndex, lapTime) {
 
 function onCheckpoint(carIndex, checkpointIndex) {
     try {
+        // Person B - Bilal: Check if checkpoint is still in the green/active state
+        // If checkpointActiveUntil is set, prevent re-collection until it returns to normal state
+        if (checkpointActiveUntil && checkpointActiveUntil[checkpointIndex] && millis() < checkpointActiveUntil[checkpointIndex]) {
+            return; // Checkpoint is still green/active, cannot be collected yet
+        }
+        
         if (checkpointSound && checkpointSound.isLoaded()) {
             checkpointSound.play();
         }
 
         let cooldownKey = `${carIndex}-${checkpointIndex}`;
         if (checkpointCooldowns[cooldownKey] && checkpointCooldowns[cooldownKey] > millis() - 500) {
-            return; // Already activated recently
+            return; // Already activated recently (additional safety check)
         }
         checkpointCooldowns[cooldownKey] = millis();
 
@@ -1026,7 +1032,7 @@ function onCheckpoint(carIndex, checkpointIndex) {
         }
 
         if (checkpointActiveUntil) {
-            checkpointActiveUntil[checkpointIndex] = millis() + 2500;
+            checkpointActiveUntil[checkpointIndex] = millis() + 4000;
         }
 
         if (gameMode === 'two-player' && checkpointCounter) {
