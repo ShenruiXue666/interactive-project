@@ -72,7 +72,7 @@ let particlePool = [];
 let nextSkidMarkIndex = 0;
 let nextParticleIndex = 0;
 
-let showParticles = true; // Toggle for particle effects
+let showParticles = false; // Toggle for particle effects
 
 /* ============================================
  * CHECKPOINT SYSTEM
@@ -118,7 +118,7 @@ const NEON_COLORS = {
  * SOUND & MUSIC SYSTEM (Person C)
  * ============================================
  */
-let menuMusic, pauseMusic, singlePlayerMusic, twoPlayerMusic, checkpointSound;
+let menuMusic, pauseMusic, singlePlayerMusic, twoPlayerMusic, checkpointSound, resultMusic;
 let currentMusic = null; // Tracks currently playing music track
 
 /**
@@ -133,6 +133,7 @@ function preload() {
         singlePlayerMusic = loadSound('assets/sounds/singleplayer.mp3');
         twoPlayerMusic = loadSound('assets/sounds/twoplayers.wav');
         checkpointSound = loadSound('assets/sounds/checkpoint.wav');
+        resultMusic = loadSound('assets/sounds/result.wav');
     } catch (e) {
         console.error("Error loading sounds. Make sure 'assets/sounds' folder exists.", e);
     }
@@ -1261,7 +1262,7 @@ function drawCheckpointStatus() {
     textSize(18);
     text("Controls:", ctrlX - 3, ctrlYOffset);
     fill(155);
-    text("E - Toggle Particles", ctrlX, ctrlYOffset += 20);
+    text("E - Toggle Effects", ctrlX, ctrlYOffset += 20);
     text("ESC - Pause", ctrlX, ctrlYOffset += 20);
 
     if (gameMode === 'single') {
@@ -1292,6 +1293,7 @@ function manageMusic() {
         if (gameMode === 'single') targetMusic = singlePlayerMusic;
         else if (gameMode === 'two-player') targetMusic = twoPlayerMusic;
     }
+    else if (gameState === 'gameOver') targetMusic = resultMusic;
 
     if (targetMusic !== currentMusic) {
         if (currentMusic && currentMusic.isLoaded() && currentMusic.isPlaying()) {
