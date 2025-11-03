@@ -30,8 +30,8 @@ class HUD {
         this.drawSpeed(carState.speed, this.padding, this.padding, this.player1Color);
 
         // Drift time display (below speed)
-        this.drawDriftTime(carState.totalDriftTime || 0, carState.drifting, 
-                          this.padding, this.padding + 90, this.player1Color, 'left');
+        this.drawDriftTime(carState.totalDriftTime || 0, carState.drifting,
+            this.padding, this.padding + 90, this.player1Color, 'left');
 
         // Lap time display (top center)
         this.drawLapTime(lapInfo, width / 2, this.padding);
@@ -60,12 +60,12 @@ class HUD {
         // Player 1 (left side)
         this.drawSpeed(car1State.speed, this.padding, this.padding, this.player1Color);
         this.drawDriftTime(car1State.totalDriftTime || 0, car1State.drifting,
-                          this.padding, this.padding + 90, this.player1Color, 'left');
-        
+            this.padding, this.padding + 90, this.player1Color, 'left');
+
         // Player 2 (right side)
         this.drawSpeed(car2State.speed, width - this.padding, this.padding, this.player2Color, 'right');
         this.drawDriftTime(car2State.totalDriftTime || 0, car2State.drifting,
-                          width - this.padding, this.padding + 90, this.player2Color, 'right');
+            width - this.padding, this.padding + 90, this.player2Color, 'right');
 
         // Timer display (top center) for two-player mode
         if (timeRemaining !== null) {
@@ -115,7 +115,7 @@ class HUD {
         textSize(this.fontSize);
         fill(150);
         noStroke();
-        text('km/h', x, y + 55);
+        text('km/h', x, y + 65);
 
         pop();
     }
@@ -141,7 +141,7 @@ class HUD {
         text('DRIFT TIME', x, y);
 
         // Drift time value with glow (larger when actively drifting)
-        textSize(isDrifting ? this.fontSize * 2.2 : this.fontSize * 2);
+        textSize(isDrifting ? this.fontSize * 1.8 : this.fontSize * 2);
         fill(color);
         this.applyTextGlow(color, isDrifting ? 2 : 1);
 
@@ -153,7 +153,7 @@ class HUD {
             textSize(this.fontSize * 0.9);
             fill(255, 255, 0);
             this.applyTextGlow('#ffff00', 2);
-            text('DRIFTING!', x, y + 55);
+            text('DRIFTING!', x, y + 65);
         }
 
         pop();
@@ -176,7 +176,7 @@ class HUD {
         // Current lap and checkpoint
         fill(150);
         noStroke();
-        text('LAP ' + (lapInfo.currentLap || 1), x, y);
+        text('LAP TIME', x, y);
 
         // Current time
         fill(color);
@@ -190,12 +190,17 @@ class HUD {
         noStroke();
 
         if (lapInfo.lastTime) {
-            text('LAST: ' + this.formatTime(lapInfo.lastTime), x, y + 55);
+            text('LAST: ' + this.formatTime(lapInfo.lastTime * 1000), x, y + 55);
+        } else {
+            text('LAST: -:--:--', x, y + 55);
         }
 
         if (lapInfo.bestTime) {
             fill('#ffaa00');
-            text('BEST: ' + this.formatTime(lapInfo.bestTime), x, y + 75);
+            text('BEST: ' + this.formatTime(lapInfo.bestTime * 1000), x, y + 75);
+        } else {
+            fill('#ffaa00');
+            text('BEST: -:--:--', x, y + 75);
         }
 
         pop();
